@@ -16,6 +16,7 @@ import PlacementScreen from './src/screens/PlacementScreen';
 import LessonScreen from './src/screens/LessonScreen';
 import LessonsScreen from './src/screens/LessonsScreen';
 import QuizScreen from './src/screens/QuizScreen';
+import PetScreen from './src/screens/PetScreen';
 import { colors } from './src/theme';
 
 type Tab = 'home' | 'learn' | 'talk' | 'pictures' | 'quiz';
@@ -88,11 +89,16 @@ function Main() {
   const [speaking, setSpeaking] = useState<string | null | undefined>(undefined);
   const [quizPreset, setQuizPreset] = useState<string | null>(null);
   const [talkOpen, setTalkOpen] = useState(false); // hide the tab bar during a conversation
+  const [petOpen, setPetOpen] = useState(false);
 
   const openLesson = lessons.find((l) => l.id === openLessonId);
 
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (petOpen) {
+        setPetOpen(false);
+        return true;
+      }
       if (reviewOpen) {
         setReviewOpen(false);
         return true;
@@ -112,7 +118,7 @@ function Main() {
       return false;
     });
     return () => sub.remove();
-  }, [openLessonId, tab, reviewOpen, speaking]);
+  }, [openLessonId, tab, reviewOpen, speaking, petOpen]);
 
   if (!ready) {
     return (
@@ -125,8 +131,10 @@ function Main() {
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
       <StatusBar style="dark" />
-      <View style={{ flex: 1, paddingBottom: openLesson || reviewOpen || speaking !== undefined || (tab === 'talk' && talkOpen) ? insets.bottom : 0 }}>
-        {reviewOpen ? (
+      <View style={{ flex: 1, paddingBottom: petOpen || openLesson || reviewOpen || speaking !== undefined || (tab === 'talk' && talkOpen) ? insets.bottom : 0 }}>
+        {petOpen ? (
+          <PetScreen onClose={() => setPetOpen(false)} />
+        ) : reviewOpen ? (
           <ReviewScreen onClose={() => setReviewOpen(false)} />
         ) : speaking !== undefined ? (
           <SpeakingScreen lessonId={speaking} onClose={() => setSpeaking(undefined)} />
@@ -149,6 +157,7 @@ function Main() {
             onOpenLesson={setOpenLessonId}
             onStartQuiz={() => setTab('quiz')}
             onStartReview={() => setReviewOpen(true)}
+            onOpenPet={() => setPetOpen(true)}
           />
         ) : tab === 'learn' ? (
           <LessonsScreen onOpenLesson={setOpenLessonId} onOpenSpeaking={() => setSpeaking(null)} />
@@ -161,7 +170,7 @@ function Main() {
         )}
       </View>
 
-      {!openLesson && !reviewOpen && speaking === undefined && !(tab === 'talk' && talkOpen) && (
+      {!petOpen && !openLesson && !reviewOpen && speaking === undefined && !(tab === 'talk' && talkOpen) && (
         <View style={[styles.tabBar, { paddingBottom: Math.max(insets.bottom, 10) }]}>
           {tabs.map((t) => {
             const active = t.key === tab;

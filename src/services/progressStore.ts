@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import type { PetState } from '../pet/petLogic';
 
 /**
  * Where the learner's progress is saved.
@@ -22,6 +23,8 @@ export type Progress = {
   placedOut: string[];
   /** How much XP the learner wants to earn each day. */
   dailyGoal?: number;
+  /** The virtual panda (missing until the learner adopts it). */
+  pet?: PetState;
   /** When this copy was last saved (used to pick the newest copy between phone and cloud). */
   savedAt?: number;
 };

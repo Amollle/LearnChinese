@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import { supabaseConfigured } from '../lib/supabase';
 import { emptyProgress, localProgressStore, Progress, ProgressStore } from '../services/progressStore';
 import { supabaseProgressStore } from '../services/supabaseProgressStore';
+import { current as currentPet, PetState } from '../pet/petLogic';
 
 // Use Supabase (with an offline copy on the phone) when configured, otherwise phone only.
 const store: ProgressStore = supabaseConfigured ? supabaseProgressStore : localProgressStore;
@@ -67,6 +68,8 @@ type ProgressContextValue = {
   placeOut: (lessons: { id: string; wordIds: string[] }[]) => void;
   dailyGoal: number;
   setDailyGoal: (xp: number) => void;
+  /** Change the virtual pet (gets the pet as it is right now, after time has passed). */
+  updatePet: (fn: (pet: PetState | undefined) => PetState | undefined) => void;
   resetAll: () => void;
 };
 
@@ -157,6 +160,13 @@ export function ProgressProvider({ userId, children }: { userId: string; childre
     setProgress((p) => ({ ...p, dailyGoal: goal }));
   }, []);
 
+  const updatePet = useCallback((fn: (pet: PetState | undefined) => PetState | undefined) => {
+    setProgress((p) => {
+      const next = fn(p.pet ? currentPet(p.pet) : undefined);
+      return next === undefined && p.pet === undefined ? p : { ...p, pet: next };
+    });
+  }, []);
+
   const today = todayKey();
   const dueWordIds = useMemo(
     () => progress.learned.filter((id) => (progress.srs[id]?.due ?? today) <= today),
@@ -165,12 +175,12 @@ export function ProgressProvider({ userId, children }: { userId: string; childre
 
   const resetAll = useCallback(() => {
     store.reset(userId);
-    // keep the learner's chosen daily goal when progress is reset
-    setProgress((p) => ({ ...emptyProgress, dailyGoal: p.dailyGoal }));
+    // keep the learner's chosen daily goal and their panda when progress is reset
+    setProgress((p) => ({ ...emptyProgress, dailyGoal: p.dailyGoal, pet: p.pet }));
   }, [userId]);
 
   return (
-    <ProgressContext.Provider value={{ progress, ready, isLearned, markLearned, addXp, recordQuiz, recordAnswer, completeLesson, dueWordIds, placeOut, dailyGoal, setDailyGoal, resetAll }}>
+    <ProgressContext.Provider value={{ progress, ready, isLearned, markLearned, addXp, recordQuiz, recordAnswer, completeLesson, dueWordIds, placeOut, dailyGoal, setDailyGoal, updatePet, resetAll }}>
       {children}
     </ProgressContext.Provider>
   );

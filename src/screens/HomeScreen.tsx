@@ -7,6 +7,8 @@ import GoalPicker from '../components/GoalPicker';
 import { todayKey, useProgress } from '../context/ProgressContext';
 import { allWords, lessons } from '../data/lessons';
 import { colors } from '../theme';
+import Panda from '../pet/Panda';
+import { current, moodOf, rewardFor } from '../pet/petLogic';
 
 function wordOfTheDay() {
   const key = todayKey();
@@ -19,10 +21,12 @@ export default function HomeScreen({
   onOpenLesson,
   onStartQuiz,
   onStartReview,
+  onOpenPet,
 }: {
   onOpenLesson: (id: string) => void;
   onStartQuiz: () => void;
   onStartReview: () => void;
+  onOpenPet: () => void;
 }) {
   const { progress, resetAll, dueWordIds, dailyGoal } = useProgress();
   const [goalPickerOpen, setGoalPickerOpen] = useState(false);
@@ -35,6 +39,9 @@ export default function HomeScreen({
     lessons[startIndex];
   const nextDone = nextLesson.words.filter((w) => progress.learned.includes(w.id)).length;
   const goalReached = progress.xpToday >= dailyGoal;
+  const pet = progress.pet ? current(progress.pet) : undefined;
+  const petMood = pet ? moodOf(pet) : 'happy';
+  const rewardReady = !!pet && goalReached && pet.lastRewardDate !== todayKey();
 
   const confirmReset = () =>
     Alert.alert('Reset progress?', 'This clears your XP, streak and learned words.', [
@@ -73,6 +80,27 @@ export default function HomeScreen({
         </Card>
       </Pressable>
       <GoalPicker visible={goalPickerOpen} onClose={() => setGoalPickerOpen(false)} />
+
+      <Pressable onPress={onOpenPet} accessibilityLabel="Open your panda">
+        <Card style={[styles.block, styles.petCard, rewardReady && styles.petCardReward]}>
+          <Panda mood={petMood} wearing={pet?.wearing} size={74} bounce={false} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.petTitle}>{pet ? pet.name : 'Adopt a panda 🐼'}</Text>
+            <Text style={styles.petSub}>
+              {!pet
+                ? 'Earn coins by reaching your daily goal, then feed and dress it up!'
+                : rewardReady
+                  ? `🎁 Goal reached! Tap to claim ${rewardFor(progress.streak)} coins`
+                  : petMood === 'hungry'
+                    ? '😢 Your panda is hungry — come feed it!'
+                    : petMood === 'sad'
+                      ? '🥺 Your panda misses you — come play!'
+                      : `🪙 ${pet.coins} coins · ${goalReached ? 'see you tomorrow!' : 'reach your goal for more'}`}
+            </Text>
+          </View>
+          <Text style={styles.petArrow}>→</Text>
+        </Card>
+      </Pressable>
 
       {progress.learned.length > 0 && (
         <Pressable onPress={onStartReview}>
@@ -124,7 +152,7 @@ export default function HomeScreen({
 
       <Button title="Take a quick quiz" onPress={onStartQuiz} variant="secondary" style={styles.block} />
 
-      <Text style={styles.version}>App version 12 · {supabaseConfigured ? 'synced to cloud ☁️' : 'saved on this phone'}</Text>
+      <Text style={styles.version}>App version 14 · Panda pet · {supabaseConfigured ? 'synced to cloud ☁️' : 'saved on this phone'}</Text>
       <View style={styles.footerLinks}>
         <Pressable onPress={retakePlacement} hitSlop={8}>
           <Text style={styles.resetText}>Retake placement quiz</Text>
@@ -177,6 +205,11 @@ const styles = StyleSheet.create({
   wotdHanzi: { fontSize: 40, color: colors.ink, fontWeight: '600' },
   wotdPinyin: { fontSize: 18, color: colors.red, fontWeight: '600', marginVertical: 2 },
   changeGoal: { fontSize: 14, fontWeight: '800', color: colors.red, marginLeft: 10 },
+  petCard: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },
+  petCardReward: { backgroundColor: colors.goldSoft, borderWidth: 2, borderColor: colors.gold },
+  petTitle: { fontSize: 18, fontWeight: '800', color: colors.ink },
+  petSub: { fontSize: 13, color: colors.muted, marginTop: 2, lineHeight: 18 },
+  petArrow: { fontSize: 24, fontWeight: '700', color: colors.ink },
   version: { fontSize: 12, color: colors.muted, textAlign: 'center', marginTop: 24 },
   footerLinks: { flexDirection: 'row', justifyContent: 'center', flexWrap: 'wrap', gap: 20, marginTop: 28 },
   resetText: { color: colors.muted, fontSize: 13, textDecorationLine: 'underline' },
