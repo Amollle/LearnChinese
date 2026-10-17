@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import PetBuddy, { petReact } from '../pet/PetBuddy';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Button, Card, onPhotoError, Photo, ProgressBar, SpeakButton, speakChinese } from '../components/ui';
 import { useProgress } from '../context/ProgressContext';
@@ -26,7 +27,10 @@ export default function PicturesScreen() {
   return (
     <>
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-        <Text style={styles.title}>Picture Characters</Text>
+        <View style={styles.titleRow}>
+          <Text style={[styles.title, { flex: 1 }]}>Picture Characters</Text>
+          <PetBuddy size={56} />
+        </View>
         <Text style={styles.subtitle}>
           Many Chinese characters started out as drawings of the things they mean. The oldest ones were carved on
           animal bones and shells about 3,000 years ago (甲骨文, “oracle bone script”).
@@ -230,13 +234,17 @@ function PictureGame({ onExit }: { onExit: () => void }) {
     if (chosen) return;
     setChosen(p.hanzi);
     speakChinese(q.answer.hanzi);
+    petReact(p.hanzi === q.answer.hanzi ? 'right' : 'wrong');
     if (p.hanzi === q.answer.hanzi) {
       setScore((s) => s + 1);
       addXp(XP_PER_CORRECT);
     }
   };
   const next = () => {
-    if (i + 1 >= questions.length) setDone(true);
+    if (i + 1 >= questions.length) {
+      petReact('done');
+      setDone(true);
+    }
     else {
       setI(i + 1);
       setChosen(null);
@@ -255,6 +263,7 @@ function PictureGame({ onExit }: { onExit: () => void }) {
         <Text style={styles.counter}>
           {i + 1}/{questions.length}
         </Text>
+        <PetBuddy />
       </View>
       <ScrollView contentContainerStyle={{ padding: 20, paddingTop: 8 }}>
         <Text style={styles.prompt}>
@@ -298,6 +307,7 @@ function PictureGame({ onExit }: { onExit: () => void }) {
 
 const styles = StyleSheet.create({
   container: { padding: 20, paddingBottom: 40 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   title: { fontSize: 30, fontWeight: '800', color: colors.ink },
   subtitle: { fontSize: 15, color: colors.muted, marginTop: 4, marginBottom: 16, lineHeight: 21 },
   explain: { backgroundColor: colors.goldSoft, marginBottom: 16 },

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import PetBuddy, { petReact } from '../pet/PetBuddy';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Card } from '../components/ui';
 import { scenarios } from '../data/conversations';
@@ -25,7 +26,10 @@ export default function TalkScreen({ onOpenChange }: { onOpenChange?: (open: boo
 
   return (
     <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-      <Text style={styles.title}>Talk</Text>
+      <View style={styles.titleRow}>
+        <Text style={styles.title}>Talk</Text>
+        <PetBuddy size={56} />
+      </View>
       <Text style={styles.subtitle}>
         Practice real conversations. Tap a reply or say it out loud — and if you're stuck, tap “I don't understand” for
         help.
@@ -56,6 +60,7 @@ export default function TalkScreen({ onOpenChange }: { onOpenChange?: (open: boo
 
 const styles = StyleSheet.create({
   container: { padding: 20, paddingBottom: 40 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   title: { fontSize: 30, fontWeight: '800', color: colors.ink },
   subtitle: { fontSize: 15, color: colors.muted, marginTop: 4, marginBottom: 8, lineHeight: 21 },
   card: { flexDirection: 'row', gap: 14, marginTop: 12, alignItems: 'center' },

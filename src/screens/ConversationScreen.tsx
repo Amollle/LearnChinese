@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import PetBuddy, { petReact } from '../pet/PetBuddy';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import HelpSheet from '../components/HelpSheet';
 import { Button, Card } from '../components/ui';
@@ -48,7 +49,10 @@ export default function ConversationScreen({ scenario, onClose }: { scenario: Sc
 
   // reward finishing the conversation (more for replies spoken out loud)
   useEffect(() => {
-    if (done) addXp(15 + spokenCount * 2);
+    if (done) {
+      addXp(15 + spokenCount * 2);
+      petReact('done');
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [done]);
 
@@ -114,7 +118,9 @@ export default function ConversationScreen({ scenario, onClose }: { scenario: Sc
         <Text style={styles.headerTitle}>
           {scenario.emoji} {scenario.title}
         </Text>
-        <View style={{ width: 50 }} />
+        <View style={{ width: 50, alignItems: 'flex-end' }}>
+          <PetBuddy size={42} />
+        </View>
       </View>
       <View style={styles.toggles}>
         <Text style={styles.toggleLabel}>Pinyin</Text>

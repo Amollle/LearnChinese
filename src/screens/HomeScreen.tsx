@@ -7,8 +7,7 @@ import GoalPicker from '../components/GoalPicker';
 import { todayKey, useProgress } from '../context/ProgressContext';
 import { allWords, lessons } from '../data/lessons';
 import { colors } from '../theme';
-import Panda from '../pet/Panda';
-import { current, moodOf, rewardFor } from '../pet/petLogic';
+import PetHero from '../pet/PetHero';
 
 function wordOfTheDay() {
   const key = todayKey();
@@ -39,9 +38,6 @@ export default function HomeScreen({
     lessons[startIndex];
   const nextDone = nextLesson.words.filter((w) => progress.learned.includes(w.id)).length;
   const goalReached = progress.xpToday >= dailyGoal;
-  const pet = progress.pet ? current(progress.pet) : undefined;
-  const petMood = pet ? moodOf(pet) : 'happy';
-  const rewardReady = !!pet && goalReached && pet.lastRewardDate !== todayKey();
 
   const confirmReset = () =>
     Alert.alert('Reset progress?', 'This clears your XP, streak and learned words.', [
@@ -56,7 +52,9 @@ export default function HomeScreen({
         {user?.level ? `Level: ${user.level} · ` : ''}Let's learn some Chinese today.
       </Text>
 
-      <View style={styles.statsRow}>
+      <PetHero onOpen={onOpenPet} />
+
+      <View style={[styles.statsRow, { marginTop: 16 }]}>
         <Stat value={`${progress.streak}`} label="day streak" emoji="🔥" />
         <Stat value={`${progress.xp}`} label="total XP" emoji="⭐" />
         <Stat value={`${progress.learned.length}/${allWords.length}`} label="words" emoji="📚" />
@@ -81,26 +79,6 @@ export default function HomeScreen({
       </Pressable>
       <GoalPicker visible={goalPickerOpen} onClose={() => setGoalPickerOpen(false)} />
 
-      <Pressable onPress={onOpenPet} accessibilityLabel="Open your panda">
-        <Card style={[styles.block, styles.petCard, rewardReady && styles.petCardReward]}>
-          <Panda mood={petMood} wearing={pet?.wearing} size={74} bounce={false} />
-          <View style={{ flex: 1 }}>
-            <Text style={styles.petTitle}>{pet ? pet.name : 'Adopt a panda 🐼'}</Text>
-            <Text style={styles.petSub}>
-              {!pet
-                ? 'Earn coins by reaching your daily goal, then feed and dress it up!'
-                : rewardReady
-                  ? `🎁 Goal reached! Tap to claim ${rewardFor(progress.streak)} coins`
-                  : petMood === 'hungry'
-                    ? '😢 Your panda is hungry — come feed it!'
-                    : petMood === 'sad'
-                      ? '🥺 Your panda misses you — come play!'
-                      : `🪙 ${pet.coins} coins · ${goalReached ? 'see you tomorrow!' : 'reach your goal for more'}`}
-            </Text>
-          </View>
-          <Text style={styles.petArrow}>→</Text>
-        </Card>
-      </Pressable>
 
       {progress.learned.length > 0 && (
         <Pressable onPress={onStartReview}>
@@ -152,7 +130,7 @@ export default function HomeScreen({
 
       <Button title="Take a quick quiz" onPress={onStartQuiz} variant="secondary" style={styles.block} />
 
-      <Text style={styles.version}>App version 14 · Panda pet · {supabaseConfigured ? 'synced to cloud ☁️' : 'saved on this phone'}</Text>
+      <Text style={styles.version}>App version 16 · Panda star · {supabaseConfigured ? 'synced to cloud ☁️' : 'saved on this phone'}</Text>
       <View style={styles.footerLinks}>
         <Pressable onPress={retakePlacement} hitSlop={8}>
           <Text style={styles.resetText}>Retake placement quiz</Text>
@@ -180,8 +158,8 @@ function Stat({ value, label, emoji }: { value: string; label: string; emoji: st
 
 const styles = StyleSheet.create({
   container: { padding: 20, paddingBottom: 40 },
-  hello: { fontSize: 32, fontWeight: '800', color: colors.ink },
-  subtitle: { fontSize: 16, color: colors.muted, marginTop: 4, marginBottom: 20 },
+  hello: { fontSize: 28, fontWeight: '800', color: colors.ink },
+  subtitle: { fontSize: 16, color: colors.muted, marginTop: 2, marginBottom: 14 },
   statsRow: { flexDirection: 'row', gap: 10 },
   stat: { flex: 1, alignItems: 'center', paddingVertical: 14, paddingHorizontal: 6 },
   statEmoji: { fontSize: 22 },

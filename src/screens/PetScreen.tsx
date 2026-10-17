@@ -14,7 +14,7 @@ const TABS: { key: ItemKind; label: string }[] = [
   { key: 'outfit', label: '🎀 Outfits' },
 ];
 
-export default function PetScreen({ onClose }: { onClose: () => void }) {
+export default function PetScreen({ onClose }: { onClose?: () => void }) {
   const { progress, updatePet, dailyGoal } = useProgress();
   const [now, setNow] = useState(Date.now());
   const [line, setLine] = useState<Line | null>(null);
@@ -120,9 +120,13 @@ export default function PetScreen({ onClose }: { onClose: () => void }) {
   return (
     <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
       <View style={styles.topRow}>
-        <Pressable onPress={onClose} hitSlop={10}>
-          <Text style={styles.back}>← Home</Text>
-        </Pressable>
+        {onClose ? (
+          <Pressable onPress={onClose} hitSlop={10}>
+            <Text style={styles.back}>← Home</Text>
+          </Pressable>
+        ) : (
+          <Text style={styles.tabTitle}>🐼 My Panda</Text>
+        )}
         <View style={styles.coins}>
           <Text style={styles.coinsText}>🪙 {pet.coins}</Text>
         </View>
@@ -212,14 +216,16 @@ export default function PetScreen({ onClose }: { onClose: () => void }) {
   );
 }
 
-function Adopt({ onClose, onAdopt }: { onClose: () => void; onAdopt: (name: string) => void }) {
+function Adopt({ onClose, onAdopt }: { onClose?: () => void; onAdopt: (name: string) => void }) {
   const [name, setName] = useState('');
   const ok = name.trim().length > 0;
   return (
     <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-      <Pressable onPress={onClose} hitSlop={10}>
-        <Text style={styles.back}>← Home</Text>
-      </Pressable>
+      {onClose && (
+        <Pressable onPress={onClose} hitSlop={10}>
+          <Text style={styles.back}>← Home</Text>
+        </Pressable>
+      )}
       <Text style={[styles.name, { marginTop: 10 }]}>Adopt a panda!</Text>
       <Text style={styles.mood}>熊猫 xióngmāo · panda</Text>
       <View style={styles.stage}>
@@ -304,6 +310,7 @@ function FloatUp({ emoji }: { emoji: string }) {
 const styles = StyleSheet.create({
   container: { padding: 20, paddingBottom: 40 },
   topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  tabTitle: { fontSize: 18, fontWeight: '800', color: colors.ink },
   back: { fontSize: 16, fontWeight: '700', color: colors.red },
   coins: { backgroundColor: colors.goldSoft, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 6 },
   coinsText: { fontSize: 17, fontWeight: '800', color: colors.ink },

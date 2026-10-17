@@ -9,6 +9,7 @@ import {
 } from 'expo-audio';
 import { File } from 'expo-file-system';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import PetBuddy, { petReact } from '../pet/PetBuddy';
 import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import PitchGraph from '../components/PitchGraph';
 import { Button, Card, SpeakButton, speakChinese } from '../components/ui';
@@ -117,6 +118,7 @@ export default function SpeakingScreen({ lessonId, onClose }: { lessonId?: strin
         const x = resampleTo16k(samples, sampleRate);
         const result = evaluateAttempt(x, word, speechRefs[word.id], pickCompetitors(word, speechWords, speechRefs));
         setAttempt(result);
+        petReact(result.ok && result.tonesRight === result.tonesJudged ? 'right' : 'wrong');
         if (result.ok && result.tonesJudged > 0 && result.tonesRight === result.tonesJudged && !rewarded[word.id]) {
           addXp(5);
           setRewarded((r) => ({ ...r, [word.id]: true }));
@@ -145,7 +147,9 @@ export default function SpeakingScreen({ lessonId, onClose }: { lessonId?: strin
           <Text style={styles.back}>‹ Learn</Text>
         </Pressable>
         <Text style={styles.headerTitle}>🎙️ Speaking practice</Text>
-        <View style={{ width: 60 }} />
+        <View style={{ width: 60, alignItems: 'flex-end' }}>
+          <PetBuddy size={42} />
+        </View>
       </View>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>

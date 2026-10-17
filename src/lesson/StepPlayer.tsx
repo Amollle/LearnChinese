@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import PetBuddy, { petReact } from '../pet/PetBuddy';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { AncientGlyph } from '../components/AncientGlyph';
 import { Button, Card, ProgressBar, SpeakButton, speakChinese } from '../components/ui';
@@ -37,6 +38,7 @@ export default function StepPlayer({
   const answer = (fb: Feedback, recordWords = true) => {
     setFeedback(fb);
     if (!step.kind || step.kind === 'intro') return;
+    petReact(fb.correct ? 'right' : 'wrong');
     if (!('retry' in step && step.retry)) {
       setScore((s) => ({ correct: s.correct + (fb.correct ? 1 : 0), total: s.total + 1 }));
     }
@@ -51,6 +53,7 @@ export default function StepPlayer({
     }
     setFeedback(null);
     if (index + 1 >= q.length) {
+      petReact('done');
       onFinish(score);
     } else {
       setIndex(index + 1);
@@ -69,6 +72,7 @@ export default function StepPlayer({
           <ProgressBar value={(index + (feedback ? 1 : 0)) / queue.length} color={colors.jade} height={12} />
         </View>
         <Text style={styles.counter}>{remaining}</Text>
+        <PetBuddy />
       </View>
 
       <ScrollView contentContainerStyle={styles.body} key={index}>

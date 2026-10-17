@@ -3,7 +3,9 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, BackHandler, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
-import { ProgressProvider, useProgress } from './src/context/ProgressContext';
+import { ProgressProvider, todayKey, useProgress } from './src/context/ProgressContext';
+import Panda from './src/pet/Panda';
+import { current, moodOf } from './src/pet/petLogic';
 import { SettingsProvider } from './src/context/SettingsContext';
 import { lessons } from './src/data/lessons';
 import AuthScreen from './src/screens/AuthScreen';
@@ -19,11 +21,12 @@ import QuizScreen from './src/screens/QuizScreen';
 import PetScreen from './src/screens/PetScreen';
 import { colors } from './src/theme';
 
-type Tab = 'home' | 'learn' | 'talk' | 'pictures' | 'quiz';
+type Tab = 'home' | 'learn' | 'pet' | 'talk' | 'pictures' | 'quiz';
 
 const tabs: { key: Tab; label: string; icon: string }[] = [
   { key: 'home', label: 'Home', icon: '🏠' },
   { key: 'learn', label: 'Learn', icon: '📖' },
+  { key: 'pet', label: 'Panda', icon: '🐼' },
   { key: 'talk', label: 'Talk', icon: '💬' },
   { key: 'pictures', label: 'Pictures', icon: '🖼️' },
   { key: 'quiz', label: 'Quiz', icon: '✏️' },
@@ -89,16 +92,11 @@ function Main() {
   const [speaking, setSpeaking] = useState<string | null | undefined>(undefined);
   const [quizPreset, setQuizPreset] = useState<string | null>(null);
   const [talkOpen, setTalkOpen] = useState(false); // hide the tab bar during a conversation
-  const [petOpen, setPetOpen] = useState(false);
 
   const openLesson = lessons.find((l) => l.id === openLessonId);
 
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (petOpen) {
-        setPetOpen(false);
-        return true;
-      }
       if (reviewOpen) {
         setReviewOpen(false);
         return true;
@@ -118,7 +116,7 @@ function Main() {
       return false;
     });
     return () => sub.remove();
-  }, [openLessonId, tab, reviewOpen, speaking, petOpen]);
+  }, [openLessonId, tab, reviewOpen, speaking]);
 
   if (!ready) {
     return (
@@ -131,10 +129,8 @@ function Main() {
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
       <StatusBar style="dark" />
-      <View style={{ flex: 1, paddingBottom: petOpen || openLesson || reviewOpen || speaking !== undefined || (tab === 'talk' && talkOpen) ? insets.bottom : 0 }}>
-        {petOpen ? (
-          <PetScreen onClose={() => setPetOpen(false)} />
-        ) : reviewOpen ? (
+      <View style={{ flex: 1, paddingBottom: openLesson || reviewOpen || speaking !== undefined || (tab === 'talk' && talkOpen) ? insets.bottom : 0 }}>
+        {reviewOpen ? (
           <ReviewScreen onClose={() => setReviewOpen(false)} />
         ) : speaking !== undefined ? (
           <SpeakingScreen lessonId={speaking} onClose={() => setSpeaking(undefined)} />
@@ -157,10 +153,12 @@ function Main() {
             onOpenLesson={setOpenLessonId}
             onStartQuiz={() => setTab('quiz')}
             onStartReview={() => setReviewOpen(true)}
-            onOpenPet={() => setPetOpen(true)}
+            onOpenPet={() => setTab('pet')}
           />
         ) : tab === 'learn' ? (
           <LessonsScreen onOpenLesson={setOpenLessonId} onOpenSpeaking={() => setSpeaking(null)} />
+        ) : tab === 'pet' ? (
+          <PetScreen />
         ) : tab === 'talk' ? (
           <TalkScreen onOpenChange={setTalkOpen} />
         ) : tab === 'pictures' ? (
@@ -170,10 +168,11 @@ function Main() {
         )}
       </View>
 
-      {!petOpen && !openLesson && !reviewOpen && speaking === undefined && !(tab === 'talk' && talkOpen) && (
+      {!openLesson && !reviewOpen && speaking === undefined && !(tab === 'talk' && talkOpen) && (
         <View style={[styles.tabBar, { paddingBottom: Math.max(insets.bottom, 10) }]}>
           {tabs.map((t) => {
             const active = t.key === tab;
+            if (t.key === 'pet') return <PetTab key={t.key} active={active} onPress={() => setTab('pet')} />;
             return (
               <Pressable key={t.key} style={styles.tab} onPress={() => setTab(t.key)}>
                 <Text style={[styles.tabIcon, { opacity: active ? 1 : 0.5 }]}>{t.icon}</Text>
@@ -184,6 +183,24 @@ function Main() {
         </View>
       )}
     </View>
+  );
+}
+
+/** The big raised panda button in the middle of the tab bar, with a red dot when the panda needs you. */
+function PetTab({ active, onPress }: { active: boolean; onPress: () => void }) {
+  const { progress, dailyGoal } = useProgress();
+  const pet = progress.pet ? current(progress.pet) : undefined;
+  const mood = pet ? moodOf(pet) : 'happy';
+  const needsYou =
+    !pet || mood === 'hungry' || mood === 'sad' || (progress.xpToday >= dailyGoal && pet.lastRewardDate !== todayKey());
+  return (
+    <Pressable style={styles.tab} onPress={onPress} accessibilityLabel="My panda">
+      <View style={[styles.petBtn, active && styles.petBtnActive]}>
+        <Panda mood={mood} wearing={pet?.wearing} size={50} bounce={!active} />
+        {needsYou && <View style={styles.dot} />}
+      </View>
+      <Text style={[styles.tabLabel, active && styles.tabLabelActive]}>Panda</Text>
+    </Pressable>
   );
 }
 
@@ -198,6 +215,24 @@ const styles = StyleSheet.create({
     paddingTop: 8,
   },
   tab: { flex: 1, alignItems: 'center', gap: 2 },
+  petBtn: {
+    width: 62,
+    height: 62,
+    borderRadius: 31,
+    marginTop: -30,
+    backgroundColor: '#EAF5EF',
+    borderWidth: 3,
+    borderColor: colors.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#2B2118',
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 6,
+  },
+  petBtnActive: { backgroundColor: colors.jade },
+  dot: { position: 'absolute', top: 2, right: 2, width: 14, height: 14, borderRadius: 7, backgroundColor: colors.red, borderWidth: 2, borderColor: '#fff' },
   tabIcon: { fontSize: 22 },
   tabLabel: { fontSize: 12, color: colors.muted, fontWeight: '600' },
   tabLabelActive: { color: colors.red, fontWeight: '800' },

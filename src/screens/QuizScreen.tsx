@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import PetBuddy, { petReact } from '../pet/PetBuddy';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Button, Card, ProgressBar, SpeakButton, speakChinese } from '../components/ui';
 import { useProgress } from '../context/ProgressContext';
@@ -77,7 +78,10 @@ export default function QuizScreen({ presetLessonId, onPresetUsed }: { presetLes
 
   return (
     <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-      <Text style={styles.title}>Quiz</Text>
+      <View style={styles.titleRow}>
+        <Text style={styles.title}>Quiz</Text>
+        <PetBuddy size={56} />
+      </View>
       <Text style={styles.subtitle}>
         {QUIZ_LENGTH} questions mixing reading, meaning and listening. Earn {XP_PER_CORRECT} XP for each right answer.
       </Text>
@@ -130,6 +134,7 @@ function QuizPlay({
   const choose = (w: Word) => {
     if (chosen) return;
     setChosen(w.id);
+    petReact(w.id === q.word.id ? 'right' : 'wrong');
     if (w.id === q.word.id) {
       setScore((s) => s + 1);
       addXp(XP_PER_CORRECT);
@@ -139,6 +144,7 @@ function QuizPlay({
 
   const next = () => {
     if (i + 1 >= questions.length) {
+      petReact('done');
       recordQuiz(Math.round((score / questions.length) * 100));
       onFinish(score);
     } else {
@@ -162,6 +168,7 @@ function QuizPlay({
         <Text style={styles.counter}>
           {i + 1}/{questions.length}
         </Text>
+        <PetBuddy />
       </View>
 
       <ScrollView contentContainerStyle={styles.playBody}>
@@ -224,6 +231,7 @@ function QuizPlay({
 
 const styles = StyleSheet.create({
   container: { padding: 20, paddingBottom: 40 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   title: { fontSize: 30, fontWeight: '800', color: colors.ink },
   subtitle: { fontSize: 15, color: colors.muted, marginTop: 4, marginBottom: 16, lineHeight: 21 },
   section: { fontSize: 13, fontWeight: '800', color: colors.muted, letterSpacing: 1, marginTop: 24, marginBottom: 2, textTransform: 'uppercase' },
