@@ -9,10 +9,8 @@ import { colors } from '../theme';
 
 export default function LessonsScreen({
   onOpenLesson,
-  onOpenSpeaking,
 }: {
   onOpenLesson: (id: string) => void;
-  onOpenSpeaking: () => void;
 }) {
   const { progress } = useProgress();
   const { user } = useAuth();
@@ -24,20 +22,8 @@ export default function LessonsScreen({
         <Text style={styles.title}>Lessons</Text>
         <PetBuddy size={56} />
       </View>
-      <Text style={styles.subtitle}>Guided lessons: meet new words, practice them, then use them in sentences.</Text>
+      <Text style={styles.subtitle}>Guided lessons: meet new words, practice them, learn to write and say them, then use them in sentences.</Text>
 
-      <Pressable onPress={onOpenSpeaking}>
-        {({ pressed }) => (
-          <Card style={[styles.speakCard, pressed && { opacity: 0.85 }]}>
-            <Text style={{ fontSize: 30 }}>🎙️</Text>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.speakTitle}>Speaking practice</Text>
-              <Text style={styles.speakSub}>Say words out loud — get feedback on your tones and sounds</Text>
-            </View>
-            <Text style={styles.speakArrow}>→</Text>
-          </Card>
-        )}
-      </Pressable>
 
       {levels.map((level) => (
         <View key={level.id}>

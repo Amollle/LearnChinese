@@ -11,7 +11,6 @@ import { lessons } from './src/data/lessons';
 import AuthScreen from './src/screens/AuthScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import ReviewScreen from './src/screens/ReviewScreen';
-import SpeakingScreen from './src/screens/SpeakingScreen';
 import TalkScreen from './src/screens/TalkScreen';
 import PicturesScreen from './src/screens/PicturesScreen';
 import PlacementScreen from './src/screens/PlacementScreen';
@@ -88,8 +87,6 @@ function Main() {
   const [tab, setTab] = useState<Tab>('home');
   const [openLessonId, setOpenLessonId] = useState<string | null>(null);
   const [reviewOpen, setReviewOpen] = useState(false);
-  // speaking practice: undefined = closed, null = open (default lesson), string = open for that lesson
-  const [speaking, setSpeaking] = useState<string | null | undefined>(undefined);
   const [quizPreset, setQuizPreset] = useState<string | null>(null);
   const [talkOpen, setTalkOpen] = useState(false); // hide the tab bar during a conversation
 
@@ -99,10 +96,6 @@ function Main() {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
       if (reviewOpen) {
         setReviewOpen(false);
-        return true;
-      }
-      if (speaking !== undefined) {
-        setSpeaking(undefined);
         return true;
       }
       if (openLessonId) {
@@ -116,7 +109,7 @@ function Main() {
       return false;
     });
     return () => sub.remove();
-  }, [openLessonId, tab, reviewOpen, speaking]);
+  }, [openLessonId, tab, reviewOpen]);
 
   if (!ready) {
     return (
@@ -129,19 +122,13 @@ function Main() {
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
       <StatusBar style="dark" />
-      <View style={{ flex: 1, paddingBottom: openLesson || reviewOpen || speaking !== undefined || (tab === 'talk' && talkOpen) ? insets.bottom : 0 }}>
+      <View style={{ flex: 1, paddingBottom: openLesson || reviewOpen || (tab === 'talk' && talkOpen) ? insets.bottom : 0 }}>
         {reviewOpen ? (
           <ReviewScreen onClose={() => setReviewOpen(false)} />
-        ) : speaking !== undefined ? (
-          <SpeakingScreen lessonId={speaking} onClose={() => setSpeaking(undefined)} />
         ) : openLesson ? (
           <LessonScreen
             lesson={openLesson}
             onClose={() => setOpenLessonId(null)}
-            onSpeak={(id) => {
-              setOpenLessonId(null);
-              setSpeaking(id);
-            }}
             onQuiz={(id) => {
               setOpenLessonId(null);
               setQuizPreset(id);
@@ -156,7 +143,7 @@ function Main() {
             onOpenPet={() => setTab('pet')}
           />
         ) : tab === 'learn' ? (
-          <LessonsScreen onOpenLesson={setOpenLessonId} onOpenSpeaking={() => setSpeaking(null)} />
+          <LessonsScreen onOpenLesson={setOpenLessonId} />
         ) : tab === 'pet' ? (
           <PetScreen />
         ) : tab === 'talk' ? (
@@ -168,7 +155,7 @@ function Main() {
         )}
       </View>
 
-      {!openLesson && !reviewOpen && speaking === undefined && !(tab === 'talk' && talkOpen) && (
+      {!openLesson && !reviewOpen && !(tab === 'talk' && talkOpen) && (
         <View style={[styles.tabBar, { paddingBottom: Math.max(insets.bottom, 10) }]}>
           {tabs.map((t) => {
             const active = t.key === tab;

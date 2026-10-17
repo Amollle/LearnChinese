@@ -1,6 +1,15 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import PetBuddy, { petReact } from '../pet/PetBuddy';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { useProgress } from '../context/ProgressContext';
+import { BASIC_STROKES, ORDER_TIPS } from '../writing/basics';
+import CharacterPractice, { WriteMode } from '../writing/CharacterPractice';
+import { ActivityIndicator } from 'react-native';
+import { createAudioPlayer } from 'expo-audio';
+import { PracticeResult } from '../components/HelpSheet';
+import { speechRefs, speechWords } from '../data/speechRefs';
+import { Attempt, evaluateAttempt, pickCompetitors } from '../speech/evaluate';
+import { useVoiceRecorder } from '../speech/useVoiceRecorder';
 import { AncientGlyph } from '../components/AncientGlyph';
 import { Button, Card, ProgressBar, SpeakButton, speakChinese } from '../components/ui';
 import { Word } from '../data/lessons';
@@ -33,11 +42,14 @@ export default function StepPlayer({
   const [index, setIndex] = useState(0);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [score, setScore] = useState({ correct: 0, total: 0 });
+  const [spoke, setSpoke] = useState(false); // tried the current speaking step
   const step = queue[index];
 
   const answer = (fb: Feedback, recordWords = true) => {
     setFeedback(fb);
     if (!step.kind || step.kind === 'intro') return;
+    // learning a stroke or tracing a new character isn't scored
+    if (step.kind === 'stroke' || (step.kind === 'write' && step.mode === 'learn')) return;
     petReact(fb.correct ? 'right' : 'wrong');
     if (!('retry' in step && step.retry)) {
       setScore((s) => ({ correct: s.correct + (fb.correct ? 1 : 0), total: s.total + 1 }));
@@ -52,6 +64,7 @@ export default function StepPlayer({
       setQueue(q);
     }
     setFeedback(null);
+    setSpoke(false);
     if (index + 1 >= q.length) {
       petReact('done');
       onFinish(score);
@@ -75,7 +88,7 @@ export default function StepPlayer({
         <PetBuddy />
       </View>
 
-      <ScrollView contentContainerStyle={styles.body} key={index}>
+      <ScrollView contentContainerStyle={styles.body} key={index} scrollEnabled={step.kind !== 'write' && step.kind !== 'stroke'}>
         {'retry' in step && step.retry && <Text style={styles.retryTag}>🔁 Let's try this one again</Text>}
         {step.kind === 'intro' && <IntroCard word={step.word} />}
         {step.kind === 'choice' && <ChoiceCard step={step} locked={!!feedback} onAnswer={answer} />}
@@ -90,11 +103,19 @@ export default function StepPlayer({
         )}
         {step.kind === 'build' && <BuildCard step={step} locked={!!feedback} onAnswer={answer} />}
         {step.kind === 'fill' && <FillCard step={step} locked={!!feedback} onAnswer={answer} />}
+        {step.kind === 'stroke' && <StrokeCard index={step.index} onAnswer={answer} />}
+        {step.kind === 'write' && <WriteCard step={step} locked={!!feedback} onAnswer={answer} />}
+        {step.kind === 'speak' && <SpeakCard word={step.word} onTried={() => setSpoke(true)} />}
       </ScrollView>
 
       {step.kind === 'intro' && !feedback && (
         <View style={styles.footer}>
           <Button title="Got it — continue" onPress={next} />
+        </View>
+      )}
+      {step.kind === 'speak' && (
+        <View style={styles.footer}>
+          <Button title={spoke ? 'Continue' : 'Can’t talk now — skip'} variant={spoke ? 'success' : 'secondary'} onPress={next} />
         </View>
       )}
       {feedback && (
@@ -107,6 +128,228 @@ export default function StepPlayer({
           {feedback.extra ? <Text style={styles.fbExtra}>{feedback.extra}</Text> : null}
           <Button title="Continue" variant={feedback.correct ? 'success' : 'primary'} onPress={next} style={{ marginTop: 10 }} />
         </View>
+      )}
+    </View>
+  );
+}
+
+/* ---------- Say it out loud ---------- */
+
+const TONE_COLORS = ['#7A6E64', '#C8312B', '#E0A526', '#2E8B6E', '#3B6FB6', '#7A6E64'];
+
+function SpeakCard({ word, onTried }: { word: Word; onTried: () => void }) {
+  const { addXp } = useProgress();
+  const sw = speechWords.find((s) => s.id === word.id);
+  const [attempt, setAttempt] = useState<Attempt | null>(null);
+  const [uri, setUri] = useState<string | null>(null);
+  const [rewarded, setRewarded] = useState(false);
+
+  const rec = useVoiceRecorder((samples, fileUri) => {
+    if (!sw) return;
+    const a = evaluateAttempt(samples, sw, speechRefs[sw.id], pickCompetitors(sw, speechWords, speechRefs));
+    setAttempt(a);
+    setUri(fileUri);
+    onTried();
+    const perfect = a.ok && a.tonesJudged > 0 && a.tonesRight === a.tonesJudged;
+    petReact(perfect ? 'right' : 'wrong');
+    if (perfect && !rewarded) {
+      addXp(5);
+      setRewarded(true);
+    }
+  }, 4);
+
+  useEffect(() => {
+    speakChinese(word.hanzi);
+  }, [word.hanzi]);
+
+  const playMine = () => {
+    if (!uri) return;
+    const p = createAudioPlayer({ uri });
+    p.play();
+    setTimeout(() => p.remove(), 6000);
+  };
+
+  return (
+    <View>
+      <Text style={styles.kicker}>SAY IT OUT LOUD 🎙️</Text>
+      <Card style={styles.introCard}>
+        <Text style={styles.introHanzi} adjustsFontSizeToFit numberOfLines={1}>
+          {word.hanzi}
+        </Text>
+        <Text style={styles.introPinyin}>
+          {sw
+            ? sw.syllables.map((s, i) => (
+                <Text key={i} style={{ color: TONE_COLORS[s.spoken] }}>
+                  {s.py}
+                  {i < sw.syllables.length - 1 ? ' ' : ''}
+                </Text>
+              ))
+            : word.pinyin}
+        </Text>
+        <Text style={styles.introEnglish}>{word.english}</Text>
+        <View style={styles.speakRow}>
+          <SpeakButton text={word.hanzi} size={46} />
+          <Text style={styles.speakHint}>Listen, then tap the mic and say it</Text>
+        </View>
+      </Card>
+
+      <View style={{ alignItems: 'center', marginTop: 18 }}>
+        <Pressable
+          onPress={rec.toggle}
+          style={({ pressed }) => [styles.mic, rec.state === 'recording' && styles.micOn, pressed && { opacity: 0.8 }]}
+          accessibilityLabel={rec.state === 'recording' ? 'Stop recording' : 'Start recording'}
+        >
+          {rec.state === 'processing' ? (
+            <ActivityIndicator color="#fff" size="large" />
+          ) : (
+            <Text style={styles.micIcon}>{rec.state === 'recording' ? '■' : '🎙️'}</Text>
+          )}
+        </Pressable>
+        <Text style={styles.micText}>
+          {rec.state === 'recording' ? 'Listening… tap to stop' : rec.state === 'processing' ? 'Checking…' : attempt ? 'Tap to try again' : 'Tap and speak'}
+        </Text>
+        {rec.error && <Text style={styles.micError}>{rec.error}</Text>}
+      </View>
+
+      {attempt && rec.state === 'idle' && (
+        <View style={{ marginTop: 6 }}>
+          <PracticeResult a={attempt} />
+          {uri && (
+            <Pressable onPress={playMine} hitSlop={8} style={{ alignSelf: 'center', marginTop: 10 }}>
+              <Text style={styles.link}>▶ Hear my voice</Text>
+            </Pressable>
+          )}
+        </View>
+      )}
+    </View>
+  );
+}
+
+/* ---------- Learn a basic stroke ---------- */
+
+function StrokeCard({ index, onAnswer }: { index: number; onAnswer: (fb: Feedback, recordWords?: boolean) => void }) {
+  const { width } = useWindowDimensions();
+  const b = BASIC_STROKES[index];
+  const [mode, setMode] = useState<WriteMode>('watch');
+  const [replay, setReplay] = useState(0);
+  const size = Math.min(width - 100, 260);
+  return (
+    <View style={{ alignItems: 'center' }}>
+      <Text style={[styles.kicker, { alignSelf: 'flex-start' }]}>NEW STROKE · 笔画 bǐhuà</Text>
+      <Pressable onPress={() => speakChinese(b.name)}>
+        <Text style={styles.strokeName}>
+          {b.name} <Text style={styles.strokePy}>{b.py}</Text>
+        </Text>
+      </Pressable>
+      <Text style={styles.strokeEn}>{b.en} stroke</Text>
+      <Text style={styles.strokeTip}>{b.tip}</Text>
+      <CharacterPractice
+        key={mode}
+        char={b.char}
+        mode={mode}
+        only={b.stroke}
+        size={size}
+        replayKey={replay}
+        onDone={() => {
+          if (mode === 'watch') setTimeout(() => setMode('trace'), 700);
+          else onAnswer({ correct: true, main: `You wrote ${b.name} ${b.py}!`, sub: `Shown inside ${b.char} — you'll see this stroke in lots of characters.` }, false);
+        }}
+      />
+      {mode === 'trace' && (
+        <Pressable
+          onPress={() => {
+            setMode('watch');
+            setReplay((r) => r + 1);
+          }}
+          hitSlop={8}
+        >
+          <Text style={styles.link}>👀 Watch again</Text>
+        </Pressable>
+      )}
+    </View>
+  );
+}
+
+/* ---------- Write a character ---------- */
+
+function WriteCard({
+  step,
+  locked,
+  onAnswer,
+}: {
+  step: Extract<Step, { kind: 'write' }>;
+  locked: boolean;
+  onAnswer: (fb: Feedback, recordWords?: boolean) => void;
+}) {
+  const { width, height } = useWindowDimensions();
+  const { markWritten } = useProgress();
+  const learn = step.mode === 'learn';
+  const [mode, setMode] = useState<WriteMode>(learn ? 'watch' : 'write');
+  const [replay, setReplay] = useState(0);
+  const size = Math.min(width - 80, height * 0.38, 320);
+  const { word, char } = step;
+  const tip = ORDER_TIPS[char];
+
+  const done = (mistakes: number) => {
+    if (mode === 'watch') {
+      if (learn && !locked) setTimeout(() => setMode('trace'), 700);
+      return;
+    }
+    if (locked) return;
+    if (learn) {
+      onAnswer({ correct: true, main: mistakes === 0 ? 'Beautiful writing!' : 'Nice — you traced it!', sub: `${char} — you'll write it from memory later in this lesson.` }, false);
+      return;
+    }
+    const ok = mistakes <= 2;
+    if (ok) markWritten(char, mistakes === 0 ? 5 : 3);
+    onAnswer(
+      ok
+        ? { correct: true, main: mistakes === 0 ? `Perfect ${char}!` : `You wrote ${char}!`, sub: `+${mistakes === 0 ? 5 : 3} XP` }
+        : { correct: false, main: `${mistakes} mistakes on ${char}`, sub: 'It will come back for another try.' },
+      false,
+    );
+  };
+
+  const forgot = () => {
+    setMode('watch');
+    setReplay((r) => r + 1);
+    onAnswer({ correct: false, main: 'No problem — watch how it’s written', sub: 'You’ll try it again at the end.' }, false);
+  };
+
+  return (
+    <View style={{ alignItems: 'center' }}>
+      <Text style={[styles.kicker, { alignSelf: 'flex-start' }]}>{learn ? 'LEARN TO WRITE' : 'WRITE FROM MEMORY'}</Text>
+      <View style={styles.writeHead}>
+        <Text style={styles.writeWord}>
+          {[...word.hanzi].map((c, i) => (
+            <Text key={i} style={c === char ? styles.writeTarget : undefined}>
+              {learn || c !== char ? c : '?'}
+            </Text>
+          ))}
+        </Text>
+        <SpeakButton text={word.hanzi} size={38} />
+      </View>
+      <Text style={styles.writeSub}>
+        {word.pinyin} · {word.english}
+      </Text>
+      {!learn && <Text style={styles.writeAsk}>Write the missing character ({word.english}) — no outline this time!</Text>}
+      {learn && mode === 'trace' && tip && <Text style={styles.writeTip}>💡 {tip}</Text>}
+      <CharacterPractice key={`${mode}-${replay}`} char={char} mode={mode} size={size} onDone={done} />
+      {!locked && learn && mode === 'trace' && (
+        <Pressable
+          onPress={() => {
+            setMode('watch');
+            setReplay((r) => r + 1);
+          }}
+          hitSlop={8}
+        >
+          <Text style={styles.link}>👀 Watch again</Text>
+        </Pressable>
+      )}
+      {!locked && !learn && (
+        <Pressable onPress={forgot} hitSlop={8}>
+          <Text style={styles.link}>🤔 I forgot — show me</Text>
+        </Pressable>
       )}
     </View>
   );
@@ -483,6 +726,24 @@ const styles = StyleSheet.create({
   counter: { color: colors.muted, fontWeight: '700', minWidth: 22, textAlign: 'right' },
   body: { padding: 20, paddingTop: 6, paddingBottom: 30 },
   retryTag: { fontSize: 13, fontWeight: '700', color: colors.gold, marginBottom: 8 },
+  speakRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 14 },
+  speakHint: { fontSize: 13, color: colors.muted, flexShrink: 1 },
+  mic: { width: 86, height: 86, borderRadius: 43, backgroundColor: colors.red, alignItems: 'center', justifyContent: 'center' },
+  micOn: { backgroundColor: colors.wrong, transform: [{ scale: 1.08 }] },
+  micIcon: { fontSize: 34, color: '#fff' },
+  micText: { fontSize: 14, color: colors.muted, marginTop: 8, fontWeight: '600' },
+  micError: { fontSize: 13, color: colors.wrong, marginTop: 6, textAlign: 'center' },
+  strokeName: { fontSize: 44, color: colors.ink },
+  strokePy: { fontSize: 20, color: colors.red, fontWeight: '700' },
+  strokeEn: { fontSize: 14, color: colors.muted },
+  strokeTip: { fontSize: 15, color: colors.ink, textAlign: 'center', marginVertical: 10, lineHeight: 21 },
+  link: { fontSize: 15, fontWeight: '700', color: colors.red, marginTop: 4 },
+  writeHead: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  writeWord: { fontSize: 34, color: colors.muted },
+  writeTarget: { color: colors.red, fontWeight: '700' },
+  writeSub: { fontSize: 14, color: colors.muted, marginBottom: 8 },
+  writeAsk: { fontSize: 14, color: colors.ink, fontWeight: '600', textAlign: 'center', marginBottom: 8 },
+  writeTip: { fontSize: 13, color: colors.ink, backgroundColor: colors.goldSoft, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5, marginBottom: 8, overflow: 'hidden' },
   kicker: { fontSize: 12, fontWeight: '800', letterSpacing: 1, color: colors.jade, marginBottom: 8 },
   introCard: { alignItems: 'center', paddingVertical: 28, borderRadius: radius.lg },
   introHanzi: { fontSize: 76, color: colors.ink, fontWeight: '500' },

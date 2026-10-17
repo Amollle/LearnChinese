@@ -16,12 +16,10 @@ export default function LessonScreen({
   lesson,
   onClose,
   onQuiz,
-  onSpeak,
 }: {
   lesson: Lesson;
   onClose: () => void;
   onQuiz: (lessonId: string) => void;
-  onSpeak: (lessonId: string) => void;
 }) {
   const { progress, recordAnswer, completeLesson, isLearned } = useProgress();
   const [phase, setPhase] = useState<Phase>({ name: 'overview' });
@@ -66,7 +64,6 @@ export default function LessonScreen({
           Review card on the Home screen.
         </Text>
         <Button title="Take the lesson quiz" onPress={() => onQuiz(lesson.id)} style={styles.wide} />
-        <Button title="🎙️ Practice speaking" variant="secondary" onPress={() => onSpeak(lesson.id)} style={[styles.wide, { marginTop: 10 }]} />
         <Button title="Practice again" variant="secondary" onPress={() => setPhase({ name: 'play', key: Date.now() })} style={[styles.wide, { marginTop: 10 }]} />
         <Button title="Back to lessons" variant="secondary" onPress={onClose} style={[styles.wide, { marginTop: 10 }]} />
       </ScrollView>
@@ -91,6 +88,8 @@ export default function LessonScreen({
           <Text style={styles.howTitle}>How this lesson works</Text>
           <How icon="👋" text="Meet each new word: hear it, see it, and read it in a sentence" />
           <How icon="🎧" text="Practice in small groups: listening, meaning, characters and tones" />
+          <How icon="✍️" text="Learn the strokes, then watch, trace and write the characters" />
+          <How icon="🎙️" text="Say words out loud and get feedback on your tones" />
           <How icon="🧩" text="Match pairs, then build real sentences from word tiles" />
           <How icon="🔁" text="Anything you miss comes back again before the end" />
         </Card>
@@ -100,7 +99,6 @@ export default function LessonScreen({
           onPress={() => setPhase({ name: 'play', key: Date.now() })}
           style={{ marginTop: 6 }}
         />
-        <Button title="🎙️ Practice speaking these words" variant="secondary" onPress={() => onSpeak(lesson.id)} style={{ marginTop: 10 }} />
 
         <Text style={styles.section}>Words in this lesson ({lesson.words.length})</Text>
         {lesson.words.map((w) => (

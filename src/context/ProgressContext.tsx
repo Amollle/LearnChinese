@@ -70,6 +70,8 @@ type ProgressContextValue = {
   setDailyGoal: (xp: number) => void;
   /** Change the virtual pet (gets the pet as it is right now, after time has passed). */
   updatePet: (fn: (pet: PetState | undefined) => PetState | undefined) => void;
+  /** A character was written from memory (earns XP). */
+  markWritten: (char: string, xp: number) => void;
   resetAll: () => void;
 };
 
@@ -167,6 +169,13 @@ export function ProgressProvider({ userId, children }: { userId: string; childre
     });
   }, []);
 
+  const markWritten = useCallback((char: string, xp: number) => {
+    setProgress((p) => {
+      const written = p.written ?? [];
+      return touch({ ...p, written: written.includes(char) ? written : [...written, char] }, xp);
+    });
+  }, []);
+
   const today = todayKey();
   const dueWordIds = useMemo(
     () => progress.learned.filter((id) => (progress.srs[id]?.due ?? today) <= today),
@@ -180,7 +189,7 @@ export function ProgressProvider({ userId, children }: { userId: string; childre
   }, [userId]);
 
   return (
-    <ProgressContext.Provider value={{ progress, ready, isLearned, markLearned, addXp, recordQuiz, recordAnswer, completeLesson, dueWordIds, placeOut, dailyGoal, setDailyGoal, updatePet, resetAll }}>
+    <ProgressContext.Provider value={{ progress, ready, isLearned, markLearned, addXp, recordQuiz, recordAnswer, completeLesson, dueWordIds, placeOut, dailyGoal, setDailyGoal, updatePet, markWritten, resetAll }}>
       {children}
     </ProgressContext.Provider>
   );

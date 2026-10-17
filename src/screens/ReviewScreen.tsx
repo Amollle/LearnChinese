@@ -9,9 +9,9 @@ import { colors } from '../theme';
 
 /** Spaced-repetition review of the words that are due today. */
 export default function ReviewScreen({ onClose }: { onClose: () => void }) {
-  const { dueWordIds, recordAnswer, addXp } = useProgress();
+  const { dueWordIds, recordAnswer, addXp, progress } = useProgress();
   // freeze the list of words when the session starts
-  const [steps] = useState(() => buildReviewSteps(allWords.filter((w) => dueWordIds.includes(w.id))));
+  const [steps] = useState(() => buildReviewSteps(allWords.filter((w) => dueWordIds.includes(w.id)), 10, progress.written ?? []));
   const [result, setResult] = useState<PlayerResult | null>(null);
   const remaining = useMemo(() => dueWordIds.length, [dueWordIds]);
 
