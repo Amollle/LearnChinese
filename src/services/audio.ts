@@ -3,6 +3,7 @@ import * as Speech from 'expo-speech';
 import { audioFiles } from '../data/audioFiles';
 import { convoAudio } from '../data/convoAudio';
 import { petAudio } from '../data/petAudio';
+import { storyAudio } from '../data/storyAudio';
 
 /**
  * Plays Chinese pronunciation.
@@ -62,6 +63,7 @@ export function playChinese(text: string, slow = false) {
     audioFiles[text] ??
     convoAudio[text] ??
     petAudio[text] ??
+    storyAudio[text] ??
     audioFiles[clean(text)];
   if (source !== undefined) {
     playSource(source).catch(() => speakWithVoice(clean(text)));

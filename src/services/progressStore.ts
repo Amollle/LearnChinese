@@ -27,6 +27,8 @@ export type Progress = {
   pet?: PetState;
   /** Characters the learner has written from memory. */
   written?: string[];
+  /** Stories the learner has finished. */
+  storiesRead?: string[];
   /** When this copy was last saved (used to pick the newest copy between phone and cloud). */
   savedAt?: number;
 };

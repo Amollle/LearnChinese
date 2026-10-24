@@ -19,13 +19,15 @@ import LessonScreen from './src/screens/LessonScreen';
 import LessonsScreen from './src/screens/LessonsScreen';
 import QuizScreen from './src/screens/QuizScreen';
 import PetScreen from './src/screens/PetScreen';
+import StoriesScreen from './src/screens/StoriesScreen';
 import { colors } from './src/theme';
 
-type Tab = 'home' | 'learn' | 'pet' | 'talk' | 'pictures' | 'quiz';
+type Tab = 'home' | 'learn' | 'stories' | 'pet' | 'talk' | 'pictures' | 'quiz';
 
 const tabs: { key: Tab; label: string; icon: string }[] = [
   { key: 'home', label: 'Home', icon: '🏠' },
   { key: 'learn', label: 'Learn', icon: '📖' },
+  { key: 'stories', label: 'Stories', icon: '📚' },
   { key: 'pet', label: 'Panda', icon: '🐼' },
   { key: 'talk', label: 'Talk', icon: '💬' },
   { key: 'pictures', label: 'Pictures', icon: '🖼️' },
@@ -89,6 +91,8 @@ function Main() {
   const [openLessonId, setOpenLessonId] = useState<string | null>(null);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [quizPreset, setQuizPreset] = useState<string | null>(null);
+  // the open book in the Stories tab (null = the bookshelf)
+  const [storyId, setStoryId] = useState<string | null>(null);
   const [talkOpen, setTalkOpen] = useState(false); // hide the tab bar during a conversation
 
   const openLesson = lessons.find((l) => l.id === openLessonId);
@@ -142,9 +146,15 @@ function Main() {
             onStartQuiz={() => setTab('quiz')}
             onStartReview={() => setReviewOpen(true)}
             onOpenPet={() => setTab('pet')}
+            onOpenStory={(id) => {
+              setStoryId(id);
+              setTab('stories');
+            }}
           />
         ) : tab === 'learn' ? (
           <LessonsScreen onOpenLesson={setOpenLessonId} />
+        ) : tab === 'stories' ? (
+          <StoriesScreen storyId={storyId} onOpenStory={setStoryId} onOpenLesson={setOpenLessonId} />
         ) : tab === 'pet' ? (
           <PetScreen />
         ) : tab === 'talk' ? (
@@ -224,6 +234,6 @@ const styles = StyleSheet.create({
   petBtnActive: { backgroundColor: colors.jade },
   dot: { position: 'absolute', top: 2, right: 2, width: 14, height: 14, borderRadius: 7, backgroundColor: colors.red, borderWidth: 2, borderColor: '#fff' },
   tabIcon: { fontSize: 22 },
-  tabLabel: { fontSize: 12, color: colors.muted, fontWeight: '600' },
+  tabLabel: { fontSize: 11, color: colors.muted, fontWeight: '600' },
   tabLabelActive: { color: colors.red, fontWeight: '800' },
 });

@@ -8,6 +8,9 @@ import { todayKey, useProgress } from '../context/ProgressContext';
 import { allWords, lessons } from '../data/lessons';
 import { colors } from '../theme';
 import PetHero from '../pet/PetHero';
+import ItemArt from '../pet/ItemArt';
+import { stories } from '../data/stories';
+import { fitLabel, recommendedLevel, storyForYou } from '../stories/storyLogic';
 
 function wordOfTheDay() {
   const key = todayKey();
@@ -21,11 +24,13 @@ export default function HomeScreen({
   onStartQuiz,
   onStartReview,
   onOpenPet,
+  onOpenStory,
 }: {
   onOpenLesson: (id: string) => void;
   onStartQuiz: () => void;
   onStartReview: () => void;
   onOpenPet: () => void;
+  onOpenStory: (id: string) => void;
 }) {
   const { progress, resetAll, dueWordIds, dailyGoal } = useProgress();
   const [goalPickerOpen, setGoalPickerOpen] = useState(false);
@@ -116,6 +121,24 @@ export default function HomeScreen({
         </Card>
       </Pressable>
 
+      {(() => {
+        const s = storyForYou(stories, progress);
+        if (!s) return null;
+        return (
+          <Pressable onPress={() => onOpenStory(s.id)}>
+            <Card style={[styles.block, styles.storyCard]}>
+              <ItemArt id={s.art} size={50} animate={false} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.storyLabel}>📖 STORY FOR YOU · {fitLabel(s, recommendedLevel(progress)).text.replace('⭐ ', '')}</Text>
+                <Text style={styles.storyTitle}>{s.title}</Text>
+                <Text style={styles.muted}>{s.titleEn}</Text>
+              </View>
+              <Text style={styles.storyArrow}>→</Text>
+            </Card>
+          </Pressable>
+        );
+      })()}
+
       <Card style={styles.block}>
         <Text style={styles.cardTitle}>Word of the day</Text>
         <View style={[styles.rowBetween, { marginTop: 10 }]}>
@@ -130,7 +153,7 @@ export default function HomeScreen({
 
       <Button title="Take a quick quiz" onPress={onStartQuiz} variant="secondary" style={styles.block} />
 
-      <Text style={styles.version}>App version 26 · Smooth panda · {supabaseConfigured ? 'synced to cloud ☁️' : 'saved on this phone'}</Text>
+      <Text style={styles.version}>App version 29 · 26 story books · {supabaseConfigured ? 'synced to cloud ☁️' : 'saved on this phone'}</Text>
       <View style={styles.footerLinks}>
         <Pressable onPress={retakePlacement} hitSlop={8}>
           <Text style={styles.resetText}>Retake placement quiz</Text>
@@ -188,6 +211,10 @@ const styles = StyleSheet.create({
   petTitle: { fontSize: 18, fontWeight: '800', color: colors.ink },
   petSub: { fontSize: 13, color: colors.muted, marginTop: 2, lineHeight: 18 },
   petArrow: { fontSize: 24, fontWeight: '700', color: colors.ink },
+  storyCard: { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 2, borderColor: colors.gold },
+  storyLabel: { fontSize: 11, fontWeight: '800', color: '#9A6B00', letterSpacing: 0.5 },
+  storyTitle: { fontSize: 20, fontWeight: '700', color: colors.ink, marginTop: 2 },
+  storyArrow: { fontSize: 24, fontWeight: '700', color: colors.ink },
   version: { fontSize: 12, color: colors.muted, textAlign: 'center', marginTop: 24 },
   footerLinks: { flexDirection: 'row', justifyContent: 'center', flexWrap: 'wrap', gap: 20, marginTop: 28 },
   resetText: { color: colors.muted, fontSize: 13, textDecorationLine: 'underline' },
