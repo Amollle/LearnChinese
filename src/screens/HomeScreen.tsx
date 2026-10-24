@@ -10,7 +10,7 @@ import { colors } from '../theme';
 import PetHero from '../pet/PetHero';
 import ItemArt from '../pet/ItemArt';
 import { stories } from '../data/stories';
-import { fitLabel, recommendedLevel, storyForYou } from '../stories/storyLogic';
+import { levelName, recommendedLevel, storyForYou } from '../stories/storyLogic';
 
 function wordOfTheDay() {
   const key = todayKey();
@@ -129,7 +129,7 @@ export default function HomeScreen({
             <Card style={[styles.block, styles.storyCard]}>
               <ItemArt id={s.art} size={50} animate={false} />
               <View style={{ flex: 1 }}>
-                <Text style={styles.storyLabel}>📖 STORY FOR YOU · {fitLabel(s, recommendedLevel(progress)).text.replace('⭐ ', '')}</Text>
+                <Text style={styles.storyLabel}>📖 STORY FOR YOU · {s.level === recommendedLevel(progress) ? '⭐ ' : ''}{levelName(s.level).toUpperCase()}</Text>
                 <Text style={styles.storyTitle}>{s.title}</Text>
                 <Text style={styles.muted}>{s.titleEn}</Text>
               </View>
@@ -153,7 +153,7 @@ export default function HomeScreen({
 
       <Button title="Take a quick quiz" onPress={onStartQuiz} variant="secondary" style={styles.block} />
 
-      <Text style={styles.version}>App version 29 · 26 story books · {supabaseConfigured ? 'synced to cloud ☁️' : 'saved on this phone'}</Text>
+      <Text style={styles.version}>App version 30 · Story levels · {supabaseConfigured ? 'synced to cloud ☁️' : 'saved on this phone'}</Text>
       <View style={styles.footerLinks}>
         <Pressable onPress={retakePlacement} hitSlop={8}>
           <Text style={styles.resetText}>Retake placement quiz</Text>

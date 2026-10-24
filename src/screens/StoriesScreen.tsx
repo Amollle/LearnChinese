@@ -7,7 +7,7 @@ import { Story, StorySentence, StoryToken, stories } from '../data/stories';
 import ItemArt from '../pet/ItemArt';
 import PetBuddy, { petReact } from '../pet/PetBuddy';
 import { playChinese } from '../services/audio';
-import { fitLabel, knowsToken, learnedHanzi, lessonFor, levelName, recommendedLevel, storyCoverage } from '../stories/storyLogic';
+import { knowsToken, learnedHanzi, lessonFor, levelName, recommendedLevel, storyCoverage } from '../stories/storyLogic';
 import { colors, radius } from '../theme';
 
 const STORY_XP = 15;
@@ -37,7 +37,7 @@ function Shelf({ onOpen }: { onOpen: (id: string) => void }) {
   const rec = recommendedLevel(progress);
   const learned = useMemo(() => learnedHanzi(progress), [progress]);
   const read = progress.storiesRead ?? [];
-  const order = [rec, ...[1, 2, 3].filter((l) => l !== rec)];
+  const order = [1, 2, 3];
 
   return (
     <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
@@ -46,26 +46,27 @@ function Shelf({ onOpen }: { onOpen: (id: string) => void }) {
         <PetBuddy size={56} />
       </View>
       <Card style={styles.levelCard}>
-        <Text style={styles.levelTitle}>Your reading level: {levelName(rec)}</Text>
-        <Text style={styles.levelSub}>Picked from the lessons you've finished. Books open as plain text — tap “Study tools” any time for pinyin, audio and word meanings.</Text>
+        <Text style={styles.levelTitle}>⭐ Recommended for you: {levelName(rec)} books</Text>
+        <Text style={styles.levelSub}>Picked from the lessons you've finished — but you can read any book at any level. Books open as plain text — tap “Study tools” any time for pinyin, audio and word meanings.</Text>
       </Card>
 
       {order.map((lvl) => (
         <View key={lvl}>
           <Text style={styles.section}>
             LEVEL {lvl} · {levelName(lvl).toUpperCase()}
+            {lvl === rec ? '  ⭐ RECOMMENDED FOR YOU' : ''}
           </Text>
           {stories
             .filter((s) => s.level === lvl)
             .map((s) => {
-              const fit = fitLabel(s, rec);
+              const starred = s.level === rec;
               const pct = Math.round(storyCoverage(s, learned) * 100);
               const done = read.includes(s.id);
               const at = chapterOf[s.id];
               return (
                 <Pressable key={s.id} onPress={() => onOpen(s.id)}>
                   {({ pressed }) => (
-                    <Card style={[styles.bookCard, fit.tone === 'good' && styles.bookCardGood, pressed && { opacity: 0.85 }]}>
+                    <Card style={[styles.bookCard, starred && styles.bookCardGood, pressed && { opacity: 0.85 }]}>
                       <View style={styles.cover}>
                         <ItemArt id={s.art} size={52} animate={false} />
                       </View>
@@ -74,7 +75,10 @@ function Shelf({ onOpen }: { onOpen: (id: string) => void }) {
                         <Text style={styles.bookEn}>{s.titleEn}</Text>
                         <Text style={styles.blurb}>{s.blurb}</Text>
                         <View style={styles.badges}>
-                          <Text style={[styles.badge, fit.tone === 'good' ? styles.badgeGood : fit.tone === 'hard' ? styles.badgeHard : styles.badgeEasy]}>{fit.text}</Text>
+                          <Text style={[styles.badge, starred ? styles.badgeGood : styles.badgeLevel]}>
+                            {starred ? '⭐ ' : ''}
+                            {levelName(s.level)}
+                          </Text>
                           <Text style={styles.meta}>
                             {s.chapters.length} chapters · you know {pct}% of the words
                             {done ? ' · ✓ Finished' : at !== undefined ? ` · reading chapter ${at + 1}` : ''}
@@ -368,8 +372,7 @@ const styles = StyleSheet.create({
   badges: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginTop: 6 },
   badge: { fontSize: 12, fontWeight: '800', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, overflow: 'hidden' },
   badgeGood: { backgroundColor: colors.goldSoft, color: '#9A6B00' },
-  badgeEasy: { backgroundColor: colors.jadeSoft, color: colors.jade },
-  badgeHard: { backgroundColor: colors.redSoft, color: colors.red },
+  badgeLevel: { backgroundColor: colors.line, color: colors.ink },
   meta: { fontSize: 12, color: colors.muted },
   bookHead: { alignItems: 'center', marginTop: 4, marginBottom: 8 },
   readerTitle: { fontSize: 28, color: colors.ink, fontWeight: '700', marginTop: 6 },
