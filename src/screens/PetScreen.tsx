@@ -1,27 +1,37 @@
+import type { ScrollViewInstance } from 'react-native';
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Button, Card, ProgressBar } from '../components/ui';
 import { todayKey, useProgress } from '../context/ProgressContext';
+import ItemArt from '../pet/ItemArt';
 import Panda from '../pet/Panda';
-import { chatLine, current, ItemKind, Line, LINES, moodOf, NAME_IDEAS, newPet, PetItem, rewardFor, SHOP, START_COINS } from '../pet/petLogic';
+import { Scene, SCENE_MS, SceneItem, sceneFor, usePandaMotion } from '../pet/PetScene';
+import { chatLine, current, ItemKind, Line, LINES, moodOf, NAME_IDEAS, newPet, PetItem, rewardFor, SHOP, START_COINS, wearItem } from '../pet/petLogic';
 import { playChinese } from '../services/audio';
 import { colors, radius } from '../theme';
 
 const MOOD_TEXT = { happy: 'Very happy', okay: 'Doing okay', hungry: 'Hungry!', sad: 'A bit sad' } as const;
-const TABS: { key: ItemKind; label: string }[] = [
+const TABS: { key: ItemKind | 'trad'; label: string }[] = [
   { key: 'food', label: '🍎 Food' },
   { key: 'toy', label: '⚽ Toys' },
   { key: 'outfit', label: '🎀 Outfits' },
+  { key: 'trad', label: '🏮 Traditional' },
 ];
 
 export default function PetScreen({ onClose }: { onClose?: () => void }) {
   const { progress, updatePet, dailyGoal } = useProgress();
   const [now, setNow] = useState(Date.now());
   const [line, setLine] = useState<Line | null>(null);
-  const [tab, setTab] = useState<ItemKind>('food');
+  const [tab, setTab] = useState<ItemKind | 'trad'>('food');
   const [notice, setNotice] = useState<string | null>(null);
+  const [culture, setCulture] = useState<string | null>(null);
   const [hearts, setHearts] = useState<{ id: number; emoji: string }[]>([]);
   const heartId = useRef(0);
+  const [scene, setScene] = useState<Scene | null>(null);
+  const [chewing, setChewing] = useState(false);
+  const busy = useRef(false);
+  const scroll = useRef<ScrollViewInstance>(null);
+  const motion = usePandaMotion();
 
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 60_000);
@@ -61,6 +71,25 @@ export default function PetScreen({ onClose }: { onClose?: () => void }) {
     setTimeout(() => setNotice((n) => (n === msg ? null : n)), 2500);
   };
 
+  /** Play a little scene (eating, playing, twirling); calls `after` when it ends. */
+  const playScene = (item: PetItem, after: () => void) => {
+    const kind = sceneFor(item);
+    busy.current = true;
+    scroll.current?.scrollTo({ y: 0, animated: true });
+    setLine(null);
+    setScene({ id: Date.now(), kind, item });
+    motion.play(kind);
+    if (kind === 'eat') {
+      setTimeout(() => setChewing(true), 600);
+      setTimeout(() => setChewing(false), 1850);
+    }
+    setTimeout(() => {
+      setScene(null);
+      busy.current = false;
+      after();
+    }, SCENE_MS[kind]);
+  };
+
   if (!pet) return <Adopt onClose={onClose} onAdopt={(name) => updatePet(() => newPet(name))} />;
 
   const mood = moodOf(pet);
@@ -72,6 +101,8 @@ export default function PetScreen({ onClose }: { onClose?: () => void }) {
   };
 
   const pressItem = (item: PetItem) => {
+    if (busy.current) return;
+    setCulture(item.note ? `${item.emoji} ${item.zh} ${item.py} — ${item.note}` : null);
     const owned = pet.owned.includes(item.id);
     if (item.kind === 'food') {
       if (pet.hunger >= 95) return say(LINES.full);
@@ -79,36 +110,42 @@ export default function PetScreen({ onClose }: { onClose?: () => void }) {
       updatePet((p) =>
         p ? { ...p, coins: p.coins - item.price, hunger: Math.min(100, p.hunger + (item.food ?? 0)), happiness: Math.min(100, p.happiness + (item.joy ?? 0)), feedCount: p.feedCount + 1 } : p,
       );
-      burst('❤️');
       playChinese(item.zh);
-      setTimeout(() => say(item.id === 'bamboo' ? LINES.bamboo : Math.random() < 0.5 ? LINES.yummy : LINES.thanks), 900);
+      playScene(item, () => {
+        burst('❤️');
+        say(item.id === 'bamboo' ? LINES.bamboo : Math.random() < 0.5 ? LINES.yummy : LINES.thanks);
+      });
       return;
     }
     if (!owned) {
       if (pet.coins < item.price) return flash(`You need ${item.price - pet.coins} more coins — reach your daily goal to earn more!`);
       updatePet((p) =>
         p
-          ? { ...p, coins: p.coins - item.price, owned: [...p.owned, item.id], wearing: item.kind === 'outfit' ? [...p.wearing, item.id] : p.wearing }
+          ? { ...p, coins: p.coins - item.price, owned: [...p.owned, item.id], wearing: item.kind === 'outfit' ? wearItem(p.wearing, item) : p.wearing }
           : p,
       );
-      burst('✨');
       playChinese(item.zh);
-      if (item.kind === 'outfit') setTimeout(() => say(LINES.pretty), 900);
-      else flash(`You bought the ${item.en}! Tap it again to play.`);
-      return;
+      if (item.kind === 'outfit') {
+        playScene(item, () => say(LINES.pretty));
+        return;
+      }
+      flash(`You bought the ${item.en}! Tap it any time to play.`);
     }
     if (item.kind === 'toy') {
       // Playing cheers the panda up but makes it a little hungry.
       updatePet((p) => (p ? { ...p, happiness: Math.min(100, p.happiness + (item.joy ?? 0)), hunger: Math.max(0, p.hunger - 5) } : p));
-      burst(item.emoji);
-      say(LINES.fun);
+      if (owned) playChinese(item.zh);
+      playScene(item, () => {
+        burst('💕');
+        say(LINES.fun);
+      });
       return;
     }
     // outfit: put on / take off
     const wearing = pet.wearing.includes(item.id);
-    updatePet((p) => (p ? { ...p, wearing: wearing ? p.wearing.filter((w) => w !== item.id) : [...p.wearing, item.id] } : p));
+    updatePet((p) => (p ? { ...p, wearing: wearing ? p.wearing.filter((w) => w !== item.id) : wearItem(p.wearing, item) } : p));
     playChinese(item.zh);
-    if (!wearing) setTimeout(() => say(LINES.pretty), 700);
+    if (!wearing) playScene(item, () => say(LINES.pretty));
   };
 
   const pat = () => {
@@ -118,7 +155,7 @@ export default function PetScreen({ onClose }: { onClose?: () => void }) {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+    <ScrollView ref={scroll} contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
       <View style={styles.topRow}>
         {onClose ? (
           <Pressable onPress={onClose} hitSlop={10}>
@@ -145,7 +182,12 @@ export default function PetScreen({ onClose }: { onClose?: () => void }) {
             <Text style={styles.bubbleEn}>{line.en}</Text>
           </Pressable>
         )}
-        <Panda mood={mood} wearing={pet.wearing} size={210} onPress={pat} />
+        <View style={{ width: 210, height: 210 }}>
+          <Animated.View style={motion.style}>
+            <Panda mood={mood} wearing={pet.wearing} size={210} onPress={scene ? undefined : pat} chewing={chewing} bounce={!scene} />
+          </Animated.View>
+          {scene && <SceneItem key={scene.id} scene={scene} size={210} />}
+        </View>
         {hearts.map((h) => (
           <FloatUp key={h.id} emoji={h.emoji} />
         ))}
@@ -180,17 +222,20 @@ export default function PetScreen({ onClose }: { onClose?: () => void }) {
       )}
 
       {notice && <Text style={styles.notice}>{notice}</Text>}
+      {culture && <Text style={styles.cultureNote}>{culture}</Text>}
 
       <Text style={styles.shopTitle}>Shop · 商店 shāngdiàn</Text>
       <View style={styles.tabs}>
         {TABS.map((t) => (
           <Pressable key={t.key} onPress={() => setTab(t.key)} style={[styles.tab, tab === t.key && styles.tabActive]}>
-            <Text style={[styles.tabText, tab === t.key && styles.tabTextActive]}>{t.label}</Text>
+            <Text style={[styles.tabText, tab === t.key && styles.tabTextActive]} numberOfLines={1} adjustsFontSizeToFit>
+              {t.label}
+            </Text>
           </Pressable>
         ))}
       </View>
       <View style={styles.grid}>
-        {SHOP.filter((i) => i.kind === tab).map((item) => {
+        {SHOP.filter((i) => (i.tab ?? i.kind) === tab).map((item) => {
           const owned = pet.owned.includes(item.id);
           const wearing = pet.wearing.includes(item.id);
           const tag =
@@ -198,7 +243,7 @@ export default function PetScreen({ onClose }: { onClose?: () => void }) {
           const cantAfford = !owned && pet.coins < item.price;
           return (
             <Pressable key={item.id} onPress={() => pressItem(item)} style={({ pressed }) => [styles.item, wearing && styles.itemOn, { opacity: pressed ? 0.7 : 1 }]}>
-              <Text style={styles.itemEmoji}>{item.emoji}</Text>
+              <ItemArt id={item.id} emoji={item.emoji} size={52} />
               <Text style={styles.itemZh}>{item.zh}</Text>
               <Text style={styles.itemPy}>{item.py}</Text>
               <Text style={styles.itemEn}>{item.en}</Text>
@@ -316,7 +361,7 @@ const styles = StyleSheet.create({
   coinsText: { fontSize: 17, fontWeight: '800', color: colors.ink },
   name: { fontSize: 30, fontWeight: '800', color: colors.ink, textAlign: 'center', marginTop: 6 },
   mood: { fontSize: 14, color: colors.muted, textAlign: 'center', marginTop: 2 },
-  stage: { alignItems: 'center', justifyContent: 'flex-end', minHeight: 250, marginTop: 8 },
+  stage: { zIndex: 5, alignItems: 'center', justifyContent: 'flex-end', minHeight: 250, marginTop: 8 },
   bubble: { backgroundColor: colors.card, borderRadius: radius.md, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 2, borderColor: colors.line, alignItems: 'center', marginBottom: 4, maxWidth: '90%' },
   bubbleZh: { fontSize: 20, color: colors.ink, fontWeight: '600' },
   bubblePy: { fontSize: 13, color: colors.red, fontWeight: '700' },
@@ -333,10 +378,11 @@ const styles = StyleSheet.create({
   rewardSub: { fontSize: 13, color: '#fff', marginTop: 2 },
   infoCard: { backgroundColor: colors.goldSoft },
   infoText: { fontSize: 14, color: colors.ink, lineHeight: 20 },
+  cultureNote: { marginTop: 10, fontSize: 14, color: colors.ink, backgroundColor: colors.goldSoft, borderRadius: 10, padding: 10, textAlign: 'center', overflow: 'hidden' },
   notice: { marginTop: 10, fontSize: 14, color: colors.wrong, textAlign: 'center', fontWeight: '600' },
   shopTitle: { fontSize: 20, fontWeight: '800', color: colors.ink, marginTop: 22 },
   tabs: { flexDirection: 'row', gap: 8, marginTop: 10 },
-  tab: { flex: 1, paddingVertical: 9, borderRadius: 20, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.line, alignItems: 'center' },
+  tab: { flex: 1, paddingHorizontal: 4, paddingVertical: 9, borderRadius: 20, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.line, alignItems: 'center' },
   tabActive: { backgroundColor: colors.red, borderColor: colors.red },
   tabText: { fontSize: 14, fontWeight: '700', color: colors.ink },
   tabTextActive: { color: '#fff' },

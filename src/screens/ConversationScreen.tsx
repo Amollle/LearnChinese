@@ -1,3 +1,4 @@
+import type { ScrollViewInstance } from 'react-native';
 import React, { useEffect, useRef, useState } from 'react';
 import PetBuddy, { petReact } from '../pet/PetBuddy';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
@@ -33,7 +34,7 @@ export default function ConversationScreen({ scenario, onClose }: { scenario: Sc
   const [helpOpen, setHelpOpen] = useState(false);
   const [voiceNote, setVoiceNote] = useState<string | null>(null);
   const [spokenCount, setSpokenCount] = useState(0);
-  const scroll = useRef<ScrollView>(null);
+  const scroll = useRef<ScrollViewInstance>(null);
   const node = scenario.nodes[nodeId];
 
   // the partner speaks when a new node starts

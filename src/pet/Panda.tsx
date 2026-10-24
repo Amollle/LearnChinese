@@ -1,7 +1,7 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Pressable, StyleProp, ViewStyle } from 'react-native';
 import Svg, { Circle, Ellipse, Path } from 'react-native-svg';
-import { ACC_ORDER, pandaArt, Shape } from './pandaArt';
+import { ACC_ORDER, pandaArt, Shape, UNDER_ORDER } from './pandaArt';
 import { Mood } from './petLogic';
 
 function draw(s: Shape, key: number) {
@@ -18,6 +18,7 @@ export default function Panda({
   size = 200,
   onPress,
   bounce = true,
+  chewing = false,
   style,
 }: {
   mood: Mood;
@@ -25,6 +26,8 @@ export default function Panda({
   size?: number;
   onPress?: () => void;
   bounce?: boolean;
+  /** mouth opens and closes, as if eating */
+  chewing?: boolean;
   style?: StyleProp<ViewStyle>;
 }) {
   const t = useRef(new Animated.Value(0)).current;
@@ -43,6 +46,14 @@ export default function Panda({
     return () => loop.stop();
   }, [bounce, mood, t]);
 
+  const [chewFrame, setChewFrame] = useState(0);
+  useEffect(() => {
+    if (!chewing) return;
+    const t = setInterval(() => setChewFrame((f) => 1 - f), 170);
+    return () => clearInterval(t);
+  }, [chewing]);
+  const face = chewing ? (chewFrame ? 'chew1' : 'chew2') : mood;
+
   const press = () => {
     squish.setValue(0.9);
     Animated.spring(squish, { toValue: 1, friction: 3, tension: 140, useNativeDriver: true }).start();
@@ -51,10 +62,12 @@ export default function Panda({
 
   const lift = mood === 'happy' ? -8 : mood === 'okay' ? -4 : -2;
   const shapes = [
-    ...pandaArt.base,
-    ...pandaArt.extra[mood],
-    ...pandaArt.eyes[mood],
-    ...pandaArt.mouth[mood],
+    ...pandaArt.baseBack,
+    ...UNDER_ORDER.filter((a) => wearing.includes(a)).flatMap((a) => pandaArt.under[a]),
+    ...pandaArt.baseFront,
+    ...pandaArt.extra[face],
+    ...pandaArt.eyes[face],
+    ...pandaArt.mouth[face],
     ...ACC_ORDER.filter((a) => wearing.includes(a)).flatMap((a) => pandaArt.acc[a]),
   ];
 
