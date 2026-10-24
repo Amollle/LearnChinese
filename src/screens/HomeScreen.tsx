@@ -130,7 +130,7 @@ export default function HomeScreen({
 
       <Button title="Take a quick quiz" onPress={onStartQuiz} variant="secondary" style={styles.block} />
 
-      <Text style={styles.version}>App version 24 · SDK 58 · {supabaseConfigured ? 'synced to cloud ☁️' : 'saved on this phone'}</Text>
+      <Text style={styles.version}>App version 25 · Cartoon tabs · {supabaseConfigured ? 'synced to cloud ☁️' : 'saved on this phone'}</Text>
       <View style={styles.footerLinks}>
         <Pressable onPress={retakePlacement} hitSlop={8}>
           <Text style={styles.resetText}>Retake placement quiz</Text>

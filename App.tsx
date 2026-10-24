@@ -4,6 +4,7 @@ import { ActivityIndicator, BackHandler, Pressable, StyleSheet, Text, View } fro
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { ProgressProvider, todayKey, useProgress } from './src/context/ProgressContext';
+import ItemArt from './src/pet/ItemArt';
 import Panda from './src/pet/Panda';
 import { current, moodOf } from './src/pet/petLogic';
 import { SettingsProvider } from './src/context/SettingsContext';
@@ -162,7 +163,9 @@ function Main() {
             if (t.key === 'pet') return <PetTab key={t.key} active={active} onPress={() => setTab('pet')} />;
             return (
               <Pressable key={t.key} style={styles.tab} onPress={() => setTab(t.key)}>
-                <Text style={[styles.tabIcon, { opacity: active ? 1 : 0.5 }]}>{t.icon}</Text>
+                <View style={{ opacity: active ? 1 : 0.55, transform: [{ scale: active ? 1.1 : 1 }] }}>
+                  <ItemArt id={`tab_${t.key}`} emoji={t.icon} size={30} animate={active} />
+                </View>
                 <Text style={[styles.tabLabel, active && styles.tabLabelActive]}>{t.label}</Text>
               </Pressable>
             );
