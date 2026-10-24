@@ -12,6 +12,8 @@ import { colors, radius } from '../theme';
 
 const STORY_XP = 15;
 const CN_NUM = ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十'];
+type FilterKey = 'all' | 'rec' | 'l1' | 'l2' | 'l3' | 'new' | 'reading' | 'done';
+
 /** Remembers which chapter each book is open at, while the app is running. */
 const chapterOf: Record<string, number> = {};
 
@@ -38,6 +40,31 @@ function Shelf({ onOpen }: { onOpen: (id: string) => void }) {
   const learned = useMemo(() => learnedHanzi(progress), [progress]);
   const read = progress.storiesRead ?? [];
   const order = [1, 2, 3];
+  const [filter, setFilter] = useState<FilterKey>('all');
+  const matches = (key: FilterKey, s: Story) => {
+    switch (key) {
+      case 'rec': return s.level === rec;
+      case 'l1': return s.level === 1;
+      case 'l2': return s.level === 2;
+      case 'l3': return s.level === 3;
+      case 'new': return !read.includes(s.id) && chapterOf[s.id] === undefined;
+      case 'reading': return !read.includes(s.id) && chapterOf[s.id] !== undefined;
+      case 'done': return read.includes(s.id);
+      default: return true;
+    }
+  };
+  const keep = (s: Story) => matches(filter, s);
+  const shown = stories.filter(keep);
+  const filters: { key: FilterKey; label: string }[] = [
+    { key: 'all', label: 'All' },
+    { key: 'rec', label: '⭐ Recommended' },
+    { key: 'l1', label: 'Beginner' },
+    { key: 'l2', label: 'Elementary' },
+    { key: 'l3', label: 'Intermediate' },
+    { key: 'new', label: 'Not started' },
+    { key: 'reading', label: '📖 Reading' },
+    { key: 'done', label: '✓ Finished' },
+  ];
 
   return (
     <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
@@ -50,13 +77,33 @@ function Shelf({ onOpen }: { onOpen: (id: string) => void }) {
         <Text style={styles.levelSub}>Picked from the lessons you've finished — but you can read any book at any level. Books open as plain text — tap “Study tools” any time for pinyin, audio and word meanings.</Text>
       </Card>
 
-      {order.map((lvl) => (
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterRow} contentContainerStyle={{ gap: 8, paddingRight: 20 }}>
+        {filters.map((f) => {
+          const on = filter === f.key;
+          const count = stories.filter((s) => matches(f.key, s)).length;
+          return (
+            <Pressable key={f.key} onPress={() => setFilter(f.key)} style={[styles.filterChip, on && styles.filterChipOn]}>
+              <Text style={[styles.filterText, on && { color: '#fff' }]}>
+                {f.label} <Text style={[styles.filterCount, on && { color: '#FFE9E6' }]}>{count}</Text>
+              </Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+
+      {shown.length === 0 && (
+        <Text style={styles.empty}>
+          {filter === 'done' ? 'No finished books yet — pick one and read to the end!' : filter === 'reading' ? 'You haven’t started a book yet.' : 'No books here.'}
+        </Text>
+      )}
+
+      {order.filter((lvl) => shown.some((s) => s.level === lvl)).map((lvl) => (
         <View key={lvl}>
           <Text style={styles.section}>
             LEVEL {lvl} · {levelName(lvl).toUpperCase()}
             {lvl === rec ? '  ⭐ RECOMMENDED FOR YOU' : ''}
           </Text>
-          {stories
+          {shown
             .filter((s) => s.level === lvl)
             .map((s) => {
               const starred = s.level === rec;
@@ -359,6 +406,12 @@ const styles = StyleSheet.create({
   studyHint: { fontSize: 13, color: colors.muted },
   toggle: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   toggleText: { fontSize: 14, fontWeight: '700', color: colors.ink },
+  filterRow: { marginTop: 14, marginHorizontal: -20, paddingLeft: 20 },
+  filterChip: { borderWidth: 1, borderColor: colors.line, backgroundColor: colors.card, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8 },
+  filterChipOn: { backgroundColor: colors.red, borderColor: colors.red },
+  filterText: { fontSize: 14, fontWeight: '700', color: colors.ink },
+  filterCount: { fontSize: 12, fontWeight: '600', color: colors.muted },
+  empty: { fontSize: 14, color: colors.muted, textAlign: 'center', marginTop: 30 },
   levelCard: { backgroundColor: colors.jadeSoft, marginTop: 8 },
   levelTitle: { fontSize: 17, fontWeight: '800', color: colors.ink },
   levelSub: { fontSize: 13, color: colors.muted, marginTop: 4, lineHeight: 19 },
