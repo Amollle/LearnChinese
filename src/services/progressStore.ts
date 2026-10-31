@@ -9,6 +9,17 @@ import type { PetState } from '../pet/petLogic';
  * implements `ProgressStore` (e.g. `apiProgressStore`) and swap it in
  * `ProgressContext.tsx` — no screens need to change.
  */
+/** A word or phrase the AI coach picked out after a free-talk conversation. */
+export type CoachWord = {
+  zh: string;
+  py: string;
+  en: string;
+  /** The coach's one-line reason it is worth practising. */
+  why?: string;
+  /** When it was added (ms), so the newest come first. */
+  addedAt: number;
+};
+
 export type Progress = {
   learned: string[];
   xp: number;
@@ -29,6 +40,8 @@ export type Progress = {
   written?: string[];
   /** Stories the learner has finished. */
   storiesRead?: string[];
+  /** Words the AI coach saved to review after a free-talk conversation. */
+  coachWords?: CoachWord[];
   /** When this copy was last saved (used to pick the newest copy between phone and cloud). */
   savedAt?: number;
 };
