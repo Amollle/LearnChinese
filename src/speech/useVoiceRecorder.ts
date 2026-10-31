@@ -46,6 +46,10 @@ export function useVoiceRecorder(onAudio: (samples: Float32Array, uri: string) =
 
   useEffect(() => () => {
     if (timer.current) clearTimeout(timer.current);
+    // Leaving the step while still recording would otherwise keep the phone in
+    // recording mode, which sends every later sound to the earpiece instead of
+    // the speaker and makes the app seem silent.
+    setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true, interruptionMode: 'duckOthers' }).catch(() => {});
   }, []);
 
   const stop = async () => {
