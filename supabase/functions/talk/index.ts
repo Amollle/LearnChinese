@@ -1,17 +1,25 @@
 // Free-talk conversations and the end-of-chat coach.
 //
-// This runs on Supabase, not on the phone, so the Anthropic API key stays
-// secret. Set it once with:
-//   npx supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
+// This runs on Supabase, not on the phone, so the AI key stays secret.
+// Set it once with:
+//   npx supabase secrets set GEMINI_API_KEY=...
+//
+// It uses Google's Gemini, whose free tier needs no credit card. Get a key at
+// aistudio.google.com. If you ever want a different AI, this file is the only
+// one that changes — the app itself does not care which AI answers.
 //
 // The app calls this with the learner's Supabase login token; Supabase checks
 // that token before this code runs, so only signed-in learners get through.
 
-const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
+const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 
-/** Quick back-and-forth needs speed; the end-of-chat coach needs care. */
-const TURN_MODEL = 'claude-haiku-5-5';
-const COACH_MODEL = 'claude-sonnet-5-5';
+/**
+ * Which Gemini model to use. Flash is the fast, free-tier one.
+ * If you see a "model not found" error, run this in a browser to see what your
+ * key can use, then set GEMINI_MODEL as a secret to one of those names:
+ *   https://generativelanguage.googleapis.com/v1beta/models?key=YOUR_KEY
+ */
+const MODEL = Deno.env.get('GEMINI_MODEL') ?? 'gemini-2.5-flash';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -28,38 +36,41 @@ function json(body: unknown, status = 200) {
   });
 }
 
-/** Ask Claude for JSON and parse it, tolerating a stray ```json fence. */
-async function ask(model: string, system: string, prompt: string, maxTokens: number) {
-  const key = Deno.env.get('ANTHROPIC_API_KEY');
-  if (!key) throw new Error('ANTHROPIC_API_KEY is not set on the server');
+/** Ask Gemini for JSON and parse it. */
+async function ask(system: string, prompt: string, maxTokens: number) {
+  const key = Deno.env.get('GEMINI_API_KEY');
+  if (!key) throw new Error('GEMINI_API_KEY is not set on the server');
 
-  const res = await fetch(ANTHROPIC_URL, {
+  const res = await fetch(`${GEMINI_BASE}/${MODEL}:generateContent`, {
     method: 'POST',
-    headers: {
-      'x-api-key': key,
-      'anthropic-version': '2023-06-01',
-      'content-type': 'application/json',
-    },
+    headers: { 'x-goog-api-key': key, 'content-type': 'application/json' },
     body: JSON.stringify({
-      model,
-      max_tokens: maxTokens,
-      system,
-      messages: [{ role: 'user', content: prompt }],
+      systemInstruction: { parts: [{ text: system }] },
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      generationConfig: {
+        // Gemini can be told to answer in JSON, so there is nothing to strip.
+        responseMimeType: 'application/json',
+        maxOutputTokens: maxTokens,
+        temperature: 0.8,
+      },
     }),
   });
 
   if (!res.ok) {
     const detail = await res.text();
-    throw new Error(`Anthropic ${res.status}: ${detail.slice(0, 400)}`);
+    if (res.status === 429) throw new Error('RATE_LIMIT');
+    throw new Error(`Gemini ${res.status}: ${detail.slice(0, 400)}`);
   }
 
   const data = await res.json();
-  const text: string = (data.content ?? []).map((c: { text?: string }) => c.text ?? '').join('');
+  const text: string = (data.candidates?.[0]?.content?.parts ?? [])
+    .map((p: { text?: string }) => p.text ?? '')
+    .join('');
   const cleaned = text.trim().replace(/^```(?:json)?/, '').replace(/```$/, '').trim();
   try {
     return JSON.parse(cleaned);
   } catch {
-    throw new Error(`Claude did not return JSON: ${cleaned.slice(0, 300)}`);
+    throw new Error(`The AI did not return JSON: ${cleaned.slice(0, 300)}`);
   }
 }
 
@@ -73,8 +84,7 @@ const PERSONA =
   `You are a warm, patient Mandarin conversation partner inside a Chinese-learning app used by children and beginners. ` +
   `Keep everything gentle, encouraging and age-appropriate: no violence, romance, politics or anything frightening. ` +
   `Stay in your role and keep the conversation about the situation. ` +
-  `Reply in Simplified Chinese, at most two short sentences per turn — usually one. ` +
-  `Always answer with JSON only, no prose and no code fence.`;
+  `Reply in Simplified Chinese, at most two short sentences per turn — usually one.`;
 
 async function handleTurn(body: {
   situation?: string;
@@ -92,7 +102,7 @@ async function handleTurn(body: {
   const system =
     `${PERSONA}\n\n${VOCAB_RULE(known)}\n\n` +
     `The situation: ${situation}\n\n` +
-    `Answer with this exact JSON shape:\n` +
+    `Answer with JSON in this exact shape:\n` +
     `{\n` +
     `  "partner": { "zh": "your reply in Chinese", "py": "pinyin with tone marks", "en": "English meaning" },\n` +
     `  "understood": "a short plain-English summary of what you think the learner just said, or null if they have not said anything yet",\n` +
@@ -104,13 +114,13 @@ async function handleTurn(body: {
     `Set "ended" to true only when the situation has reached a natural finish. ` +
     `"understood" matters: the learner is dictating with their phone, so their words may have come out wrong. ` +
     `Say what you think they meant so they can correct you. ` +
-    `Keep "note" encouraging and skip it entirely (null) when their Chinese was fine — do not nitpick.`;
+    `Keep "note" encouraging and leave it null when their Chinese was fine — do not nitpick.`;
 
   const prompt = said
     ? `Conversation so far:\n${transcript || '(nothing yet)'}\n\nThe learner just said: ${said}\n\nReply.`
     : `Start the conversation. Greet the learner in character and ask them something simple.`;
 
-  const out = await ask(TURN_MODEL, system, prompt, 900);
+  const out = await ask(system, prompt, 900);
   return json({
     partner: out.partner ?? { zh: '…', py: '', en: '' },
     understood: out.understood ?? null,
@@ -131,7 +141,7 @@ async function handleCoach(body: { situation?: string; known?: string[]; history
     `Speak directly to the learner, warmly and in plain English a child could read. Be specific about their actual ` +
     `sentences rather than generic. Never invent mistakes — if they did well, say so.\n\n` +
     `${VOCAB_RULE(known)}\n\n` +
-    `Answer with JSON only, no prose and no code fence, in this shape:\n` +
+    `Answer with JSON in this shape:\n` +
     `{\n` +
     `  "summary": "two or three sentences in your own words about how the conversation went",\n` +
     `  "didWell": ["short specific things they got right"],\n` +
@@ -144,7 +154,6 @@ async function handleCoach(body: { situation?: string; known?: string[]; history
     `honestly nothing to practise.`;
 
   const out = await ask(
-    COACH_MODEL,
     system,
     `The situation was: ${situation}\n\nThe conversation:\n${transcript || '(empty)'}\n\nReview it.`,
     1600,
@@ -157,7 +166,7 @@ async function handleCoach(body: { situation?: string; known?: string[]; history
   });
 }
 
-Deno.serve(async (req) => {
+Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   if (req.method !== 'POST') return json({ error: 'Use POST' }, 405);
 
@@ -168,6 +177,10 @@ Deno.serve(async (req) => {
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     console.error('talk function failed:', message);
+    // The free tier has a daily cap; say so in words the learner understands.
+    if (message === 'RATE_LIMIT') {
+      return json({ error: 'Free talk has had a lot of use today. Please try again later.' }, 429);
+    }
     return json({ error: message }, 500);
   }
 });

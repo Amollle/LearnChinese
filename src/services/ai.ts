@@ -35,6 +35,16 @@ export type Coaching = {
 /** Thrown for anything the learner might be able to fix (offline, signed out). */
 export class AiUnavailable extends Error {}
 
+/** The friendly message the server sent, if it sent one. */
+function messageIn(body: string): string | null {
+  try {
+    const parsed = JSON.parse(body);
+    return typeof parsed.error === 'string' ? parsed.error : null;
+  } catch {
+    return null;
+  }
+}
+
 const TIMEOUT_MS = 30000;
 
 async function call<T>(payload: Record<string, unknown>): Promise<T> {
@@ -59,6 +69,10 @@ async function call<T>(payload: Record<string, unknown>): Promise<T> {
     if (!res.ok) {
       const text = await res.text().catch(() => '');
       if (res.status === 401 || res.status === 403) throw new AiUnavailable('Please log in again to use free talk.');
+      if (res.status === 429) {
+        // the free AI tier has a daily cap — the server words this for us
+        throw new AiUnavailable(messageIn(text) ?? 'Free talk has had a lot of use today. Please try again later.');
+      }
       throw new Error(`Server error ${res.status}: ${text.slice(0, 200)}`);
     }
     return (await res.json()) as T;

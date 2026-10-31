@@ -42,3 +42,6 @@ yarn-error.*
 start-log.txt
 .env
 *.tgz
+
+# Supabase CLI scratch state (machine-specific)
+supabase/.temp/
