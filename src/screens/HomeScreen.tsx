@@ -171,7 +171,8 @@ export default function HomeScreen({
         </Card>
       </Pressable>
 
-      <Text style={styles.sectionLabel}>PRACTICE</Text>
+      <Text style={styles.sectionLabel}>EVERYTHING</Text>
+      {/* One row for the whole app, ordered by what gets opened most. */}
       <Row>
         <Tile
           emoji="🧠"
@@ -182,40 +183,20 @@ export default function HomeScreen({
           onPress={onStartReview}
         />
         <Tile
-          emoji="✏️"
-          art="tab_quiz"
-          label="Quiz"
-          badge={progress.bestQuizScore > 0 ? `best ${progress.bestQuizScore}%` : 'try one'}
-          tint={colors.redSoft}
-          onPress={() => onOpenTab('quiz')}
-        />
-        <Tile
-          emoji="🖼️"
-          art="tab_pictures"
-          label="Pictures"
-          badge={`${pictographs.length} to spot`}
-          tint={colors.goldSoft}
-          onPress={() => onOpenTab('pictures')}
-        />
-        <Tile
-          emoji="💬"
-          art="tab_talk"
-          label="Talk"
-          badge={`${scenarios.length} chats`}
-          tint={colors.jadeSoft}
-          onPress={() => onOpenTab('talk')}
-        />
-      </Row>
-
-      <Text style={styles.sectionLabel}>EXPLORE</Text>
-      <Row>
-        <Tile
           emoji="📖"
           art="tab_learn"
           label="Lessons"
           badge={`${progress.completedLessons.length}/${lessons.length}`}
           tint={colors.redSoft}
           onPress={() => onOpenTab('learn')}
+        />
+        <Tile
+          emoji="✏️"
+          art="tab_quiz"
+          label="Quiz"
+          badge={progress.bestQuizScore > 0 ? `best ${progress.bestQuizScore}%` : 'try one'}
+          tint={colors.redSoft}
+          onPress={() => onOpenTab('quiz')}
         />
         <Tile
           emoji="📚"
@@ -225,6 +206,22 @@ export default function HomeScreen({
           tint={colors.goldSoft}
           highlight={!!pick}
           onPress={() => onOpenTab('stories')}
+        />
+        <Tile
+          emoji="💬"
+          art="tab_talk"
+          label="Talk"
+          badge={`${scenarios.length} chats`}
+          tint={colors.jadeSoft}
+          onPress={() => onOpenTab('talk')}
+        />
+        <Tile
+          emoji="🖼️"
+          art="tab_pictures"
+          label="Pictures"
+          badge={`${pictographs.length} to spot`}
+          tint={colors.goldSoft}
+          onPress={() => onOpenTab('pictures')}
         />
         <Tile emoji="🐼" label="Panda" badge={petBadge} tint={colors.jadeSoft} highlight={rewardWaiting} onPress={onOpenPet} />
       </Row>
