@@ -13,6 +13,7 @@ import AuthScreen from './src/screens/AuthScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import ReviewScreen from './src/screens/ReviewScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
+import WeeklyReportScreen from './src/screens/WeeklyReportScreen';
 import TalkScreen from './src/screens/TalkScreen';
 import PicturesScreen from './src/screens/PicturesScreen';
 import PlacementScreen from './src/screens/PlacementScreen';
@@ -92,6 +93,7 @@ function Main() {
   const [openLessonId, setOpenLessonId] = useState<string | null>(null);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
   const [quizPreset, setQuizPreset] = useState<string | null>(null);
   // the open book in the Stories tab (null = the bookshelf)
   const [storyId, setStoryId] = useState<string | null>(null);
@@ -103,6 +105,10 @@ function Main() {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
       if (settingsOpen) {
         setSettingsOpen(false);
+        return true;
+      }
+      if (reportOpen) {
+        setReportOpen(false);
         return true;
       }
       if (reviewOpen) {
@@ -120,7 +126,7 @@ function Main() {
       return false;
     });
     return () => sub.remove();
-  }, [openLessonId, tab, reviewOpen, settingsOpen]);
+  }, [openLessonId, tab, reviewOpen, settingsOpen, reportOpen]);
 
   if (!ready) {
     return (
@@ -133,9 +139,11 @@ function Main() {
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
       <StatusBar style="dark" />
-      <View style={{ flex: 1, paddingBottom: openLesson || reviewOpen || settingsOpen || (tab === 'talk' && talkOpen) ? insets.bottom : 0 }}>
+      <View style={{ flex: 1, paddingBottom: openLesson || reviewOpen || settingsOpen || reportOpen || (tab === 'talk' && talkOpen) ? insets.bottom : 0 }}>
         {settingsOpen ? (
           <SettingsScreen onClose={() => setSettingsOpen(false)} />
+        ) : reportOpen ? (
+          <WeeklyReportScreen onClose={() => setReportOpen(false)} />
         ) : reviewOpen ? (
           <ReviewScreen onClose={() => setReviewOpen(false)} />
         ) : openLesson ? (
@@ -159,6 +167,7 @@ function Main() {
               setTab('stories');
             }}
             onOpenSettings={() => setSettingsOpen(true)}
+            onOpenReport={() => setReportOpen(true)}
           />
         ) : tab === 'learn' ? (
           <LessonsScreen onOpenLesson={setOpenLessonId} />
@@ -175,7 +184,7 @@ function Main() {
         )}
       </View>
 
-      {!openLesson && !reviewOpen && !settingsOpen && !(tab === 'talk' && talkOpen) && (
+      {!openLesson && !reviewOpen && !settingsOpen && !reportOpen && !(tab === 'talk' && talkOpen) && (
         <View style={[styles.tabBar, { paddingBottom: Math.max(insets.bottom, 10) }]}>
           {tabs.map((t) => {
             const active = t.key === tab;

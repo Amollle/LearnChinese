@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { supabaseConfigured } from '../lib/supabase';
-import { CoachWord, emptyProgress, localProgressStore, Progress, ProgressStore } from '../services/progressStore';
+import { CoachWord, DayLog, emptyProgress, localProgressStore, Progress, ProgressStore, WeeklyReport } from '../services/progressStore';
 import { supabaseProgressStore } from '../services/supabaseProgressStore';
 import { current as currentPet, PetState } from '../pet/petLogic';
 
@@ -37,22 +37,52 @@ function yesterdayKey() {
   return dateKey(d);
 }
 
+/** How many days of the activity log to keep, so saved progress stays small. */
+const KEEP_DAYS = 60;
+
+const EMPTY_DAY: DayLog = { xp: 0, learned: 0, correct: 0, wrong: 0 };
+
+/** Add today's activity to the day-by-day log the weekly report reads. */
+function logDay(p: Progress, patch: Partial<DayLog>): Record<string, DayLog> {
+  const today = todayKey();
+  const day = p.days?.[today] ?? EMPTY_DAY;
+  return {
+    ...(p.days ?? {}),
+    [today]: {
+      xp: day.xp + (patch.xp ?? 0),
+      learned: day.learned + (patch.learned ?? 0),
+      correct: day.correct + (patch.correct ?? 0),
+      wrong: day.wrong + (patch.wrong ?? 0),
+    },
+  };
+}
+
+/** Drop log entries older than KEEP_DAYS. Returns the same object when nothing goes. */
+function prune(days: Progress['days']): Progress['days'] {
+  if (!days) return days;
+  const cutoff = addDays(-KEEP_DAYS);
+  const kept = Object.entries(days).filter(([date]) => date >= cutoff);
+  return kept.length === Object.keys(days).length ? days : Object.fromEntries(kept);
+}
+
 /** Adjust daily numbers when the app is opened on a new day. */
 function normalize(p: Progress): Progress {
   const today = todayKey();
-  if (p.lastActiveDate === today) return p;
+  const days = prune(p.days);
+  if (p.lastActiveDate === today) return days === p.days ? p : { ...p, days };
   const streakAlive = p.lastActiveDate === yesterdayKey();
-  return { ...p, xpToday: 0, streak: streakAlive ? p.streak : 0 };
+  return { ...p, xpToday: 0, streak: streakAlive ? p.streak : 0, days };
 }
 
-/** Register activity today: updates streak and daily XP. */
-function touch(p: Progress, xp: number): Progress {
+/** Register activity today: updates streak, daily XP and the day log. */
+function touch(p: Progress, xp: number, extra: Partial<DayLog> = {}): Progress {
   const today = todayKey();
+  const days = logDay(p, { xp, ...extra });
   if (p.lastActiveDate === today) {
-    return { ...p, xp: p.xp + xp, xpToday: p.xpToday + xp };
+    return { ...p, xp: p.xp + xp, xpToday: p.xpToday + xp, days };
   }
   const streak = p.lastActiveDate === yesterdayKey() ? p.streak + 1 : 1;
-  return { ...p, xp: p.xp + xp, xpToday: xp, streak, lastActiveDate: today };
+  return { ...p, xp: p.xp + xp, xpToday: xp, streak, lastActiveDate: today, days };
 }
 
 type ProgressContextValue = {
@@ -80,6 +110,8 @@ type ProgressContextValue = {
   addCoachWords: (words: CoachWord[]) => void;
   /** The learner says they know this one now. */
   removeCoachWord: (zh: string) => void;
+  /** Keep the coach's written week-in-review, so it is not rewritten on every visit. */
+  saveWeeklyReport: (report: WeeklyReport) => void;
   resetAll: () => void;
 };
 
@@ -114,7 +146,7 @@ export function ProgressProvider({ userId, children }: { userId: string; childre
   const markLearned = useCallback((id: string) => {
     setProgress((p) => {
       if (p.learned.includes(id)) return p;
-      return touch({ ...p, learned: [...p.learned, id] }, 5);
+      return touch({ ...p, learned: [...p.learned, id] }, 5, { learned: 1 });
     });
   }, []);
 
@@ -130,19 +162,24 @@ export function ProgressProvider({ userId, children }: { userId: string; childre
     setProgress((p) => {
       const current = p.srs[wordId] ?? { box: 0, due: todayKey() };
       const box = correct ? Math.min(current.box + 1, REVIEW_INTERVALS.length - 1) : 0;
-      return { ...p, srs: { ...p.srs, [wordId]: { box, due: addDays(REVIEW_INTERVALS[box]) } } };
+      return {
+        ...p,
+        srs: { ...p.srs, [wordId]: { box, due: addDays(REVIEW_INTERVALS[box]) } },
+        days: logDay(p, correct ? { correct: 1 } : { wrong: 1 }),
+      };
     });
   }, []);
 
   const completeLesson = useCallback((lessonId: string, wordIds: string[], xp: number) => {
     setProgress((p) => {
+      const fresh = wordIds.filter((id) => !p.learned.includes(id)).length;
       const learned = Array.from(new Set([...p.learned, ...wordIds]));
       const srs = { ...p.srs };
       for (const id of wordIds) {
         if (!srs[id] || srs[id].box === 0) srs[id] = { box: 1, due: addDays(REVIEW_INTERVALS[1]) };
       }
       const completedLessons = p.completedLessons.includes(lessonId) ? p.completedLessons : [...p.completedLessons, lessonId];
-      return touch({ ...p, learned, srs, completedLessons }, xp);
+      return touch({ ...p, learned, srs, completedLessons }, xp, { learned: fresh });
     });
   }, []);
 
@@ -206,6 +243,10 @@ export function ProgressProvider({ userId, children }: { userId: string; childre
     setProgress((p) => ({ ...p, coachWords: (p.coachWords ?? []).filter((w) => w.zh !== zh) }));
   }, []);
 
+  const saveWeeklyReport = useCallback((report: WeeklyReport) => {
+    setProgress((p) => ({ ...p, weeklyReport: report }));
+  }, []);
+
   const coachWords = progress.coachWords ?? [];
 
   const today = todayKey();
@@ -221,7 +262,7 @@ export function ProgressProvider({ userId, children }: { userId: string; childre
   }, [userId]);
 
   return (
-    <ProgressContext.Provider value={{ progress, ready, isLearned, markLearned, addXp, recordQuiz, recordAnswer, completeLesson, dueWordIds, placeOut, dailyGoal, setDailyGoal, updatePet, markWritten, markStoryRead, coachWords, addCoachWords, removeCoachWord, resetAll }}>
+    <ProgressContext.Provider value={{ progress, ready, isLearned, markLearned, addXp, recordQuiz, recordAnswer, completeLesson, dueWordIds, placeOut, dailyGoal, setDailyGoal, updatePet, markWritten, markStoryRead, coachWords, addCoachWords, removeCoachWord, saveWeeklyReport, resetAll }}>
       {children}
     </ProgressContext.Provider>
   );

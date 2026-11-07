@@ -20,6 +20,30 @@ export type CoachWord = {
   addedAt: number;
 };
 
+/** One day's activity, so the weekly report can talk about trends. */
+export type DayLog = {
+  /** XP earned that day. */
+  xp: number;
+  /** Words met for the first time that day. */
+  learned: number;
+  /** Review/quiz answers that were right. */
+  correct: number;
+  /** Review/quiz answers that were wrong. */
+  wrong: number;
+};
+
+/** The AI coach's written report on a week of learning. */
+export type WeeklyReport = {
+  headline: string;
+  summary: string;
+  wins: string[];
+  focus: string[];
+  tip: string;
+  practise: { zh: string; py: string; en: string; why?: string }[];
+  /** The day it was written (YYYY-MM-DD), so it is only rewritten once a week. */
+  madeOn: string;
+};
+
 export type Progress = {
   learned: string[];
   xp: number;
@@ -42,6 +66,10 @@ export type Progress = {
   storiesRead?: string[];
   /** Words the AI coach saved to review after a free-talk conversation. */
   coachWords?: CoachWord[];
+  /** The last sixty days of activity, keyed by date, for the weekly report. */
+  days?: Record<string, DayLog>;
+  /** The most recent weekly report, kept so it is not rewritten on every visit. */
+  weeklyReport?: WeeklyReport;
   /** When this copy was last saved (used to pick the newest copy between phone and cloud). */
   savedAt?: number;
 };

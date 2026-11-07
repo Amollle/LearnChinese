@@ -1,8 +1,12 @@
-# Turning on Free talk
+# Turning on Free talk and the weekly report
 
 Free talk is the ✨ card at the top of the **Talk** tab. Until you finish these
 steps it shows "Not connected yet" and does nothing — the six scripted
 conversations keep working exactly as before, online or off.
+
+The same setup also switches on the written part of **Your week**, the report
+card on Home. The numbers in that report are worked out on the phone and show
+either way; only the coach's write-up needs these steps.
 
 **This costs nothing.** It uses Google's Gemini, whose free tier needs no
 credit card, and Supabase's free tier for the server part. You only do this

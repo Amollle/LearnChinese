@@ -1,4 +1,5 @@
 import { supabase, supabaseConfigured } from '../lib/supabase';
+import type { WeekStats } from './weekStats';
 
 /**
  * Talks to the `talk` function running on Supabase, which is what actually
@@ -30,6 +31,16 @@ export type Coaching = {
   didWell: string[];
   workOn: string[];
   phrases: CoachPhrase[];
+};
+
+/** The coach's written week in review. The numbers stay in the app; this is the words. */
+export type WrittenReport = {
+  headline: string;
+  summary: string;
+  wins: string[];
+  focus: string[];
+  tip: string;
+  practise: CoachPhrase[];
 };
 
 /** Thrown for anything the learner might be able to fix (offline, signed out). */
@@ -99,6 +110,11 @@ export function takeTurn(args: {
   said?: string;
 }): Promise<TurnResult> {
   return call<TurnResult>({ action: 'turn', ...args });
+}
+
+/** A written report on the learner's week, from numbers the app worked out. */
+export function getWeeklyReport(args: { stats: WeekStats; known: string[] }): Promise<WrittenReport> {
+  return call<WrittenReport>({ action: 'report', ...args });
 }
 
 /** The coach's thoughts once the conversation is over. */

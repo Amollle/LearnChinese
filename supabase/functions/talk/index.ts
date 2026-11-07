@@ -166,6 +166,51 @@ async function handleCoach(body: { situation?: string; known?: string[]; history
   });
 }
 
+/**
+ * The weekly report. The app has already done the counting; this only turns
+ * those numbers into something a learner wants to read. The numbers are
+ * passed through untouched, so nothing here can get them wrong.
+ */
+async function handleReport(body: { stats?: unknown; known?: string[] }) {
+  const stats = JSON.stringify(body.stats ?? {});
+  const known = Array.isArray(body.known) ? body.known.map(String) : [];
+
+  const system =
+    `You are a kind Mandarin teacher writing a short week-in-review for a beginner, often a child, ` +
+    `in a learning app. Speak directly to them in warm, plain English a ten-year-old could read. ` +
+    `Be encouraging but honest: if the week was quiet, say so gently and make it easy to start again. ` +
+    `Never invent numbers or facts — use only what you are given, and do not repeat every figure back ` +
+    `at them, since the app already shows the numbers on screen. Your job is to say what they mean.\n\n` +
+    `${VOCAB_RULE(known)}\n\n` +
+    `Answer with JSON in this shape:\n` +
+    `{\n` +
+    `  "headline": "four to six warm words summing up the week",\n` +
+    `  "summary": "two or three sentences on how the week went and what it adds up to",\n` +
+    `  "wins": ["two or three specific things that went well"],\n` +
+    `  "focus": ["one or two specific things to put time into next week"],\n` +
+    `  "tip": "one concrete thing to try this week, in a single sentence",\n` +
+    `  "practise": [ { "zh": "...", "py": "...", "en": "...", "why": "one short line on why" } ]\n` +
+    `}\n\n` +
+    `"practise" holds up to four words from the shaky list that are worth the most attention, with a ` +
+    `real reason each — a tone that is easy to slip on, a character that looks like another one, a word ` +
+    `that keeps coming back. They go into the learner's review list, so only pick ones that help. ` +
+    `Return an empty list when the shaky list is empty.`;
+
+  const out = await ask(
+    system,
+    `Here is the learner's week as numbers:\n${stats}\n\nWrite the report.`,
+    1400,
+  );
+  return json({
+    headline: String(out.headline ?? 'Your week'),
+    summary: String(out.summary ?? ''),
+    wins: Array.isArray(out.wins) ? out.wins.map(String).slice(0, 4) : [],
+    focus: Array.isArray(out.focus) ? out.focus.map(String).slice(0, 3) : [],
+    tip: String(out.tip ?? ''),
+    practise: Array.isArray(out.practise) ? out.practise.slice(0, 4) : [],
+  });
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   if (req.method !== 'POST') return json({ error: 'Use POST' }, 405);
@@ -173,6 +218,7 @@ Deno.serve(async (req: Request) => {
   try {
     const body = await req.json();
     if (body.action === 'coach') return await handleCoach(body);
+    if (body.action === 'report') return await handleReport(body);
     return await handleTurn(body);
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);

@@ -6,6 +6,7 @@ import { supabaseConfigured } from '../lib/supabase';
 import GoalPicker from '../components/GoalPicker';
 import { todayKey, useProgress } from '../context/ProgressContext';
 import { allWords, lessons } from '../data/lessons';
+import { weekStats } from '../services/weekStats';
 import { colors } from '../theme';
 import { GearIcon } from '../components/icons';
 import PetHero from '../pet/PetHero';
@@ -27,6 +28,7 @@ export default function HomeScreen({
   onOpenPet,
   onOpenStory,
   onOpenSettings,
+  onOpenReport,
 }: {
   onOpenLesson: (id: string) => void;
   onStartQuiz: () => void;
@@ -34,6 +36,7 @@ export default function HomeScreen({
   onOpenPet: () => void;
   onOpenStory: (id: string) => void;
   onOpenSettings: () => void;
+  onOpenReport: () => void;
 }) {
   const { progress, dueWordIds, dailyGoal } = useProgress();
   const [goalPickerOpen, setGoalPickerOpen] = useState(false);
@@ -46,6 +49,7 @@ export default function HomeScreen({
     lessons[startIndex];
   const nextDone = nextLesson.words.filter((w) => progress.learned.includes(w.id)).length;
   const goalReached = progress.xpToday >= dailyGoal;
+  const week = weekStats(progress, allWords);
 
   return (
     <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
@@ -113,6 +117,22 @@ export default function HomeScreen({
         </Pressable>
       )}
 
+      {progress.learned.length > 0 && (
+        <Pressable onPress={onOpenReport}>
+          <Card style={[styles.block, styles.weekCard]}>
+            <Text style={styles.weekEmoji}>📊</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.weekTitle}>Your week</Text>
+              <Text style={styles.muted}>
+                {week.daysActive}/7 days practised · {week.xpThisWeek} XP · {week.newWordsThisWeek} new word
+                {week.newWordsThisWeek === 1 ? '' : 's'}
+              </Text>
+            </View>
+            <Text style={styles.weekArrow}>→</Text>
+          </Card>
+        </Pressable>
+      )}
+
       <Pressable onPress={() => onOpenLesson(nextLesson.id)}>
         <Card style={[styles.block, styles.continueCard]}>
           <Text style={styles.continueLabel}>CONTINUE LEARNING</Text>
@@ -162,7 +182,7 @@ export default function HomeScreen({
 
       <Button title="Take a quick quiz" onPress={onStartQuiz} variant="secondary" style={styles.block} />
 
-      <Text style={styles.version}>App version 31 · Story filters · {supabaseConfigured ? 'synced to cloud ☁️' : 'saved on this phone'}</Text>
+      <Text style={styles.version}>App version 32 · Weekly report · {supabaseConfigured ? 'synced to cloud ☁️' : 'saved on this phone'}</Text>
     </ScrollView>
   );
 }
@@ -211,6 +231,10 @@ const styles = StyleSheet.create({
   petTitle: { fontSize: 18, fontWeight: '800', color: colors.ink },
   petSub: { fontSize: 13, color: colors.muted, marginTop: 2, lineHeight: 18 },
   petArrow: { fontSize: 24, fontWeight: '700', color: colors.ink },
+  weekCard: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  weekEmoji: { fontSize: 28 },
+  weekTitle: { fontSize: 18, fontWeight: '800', color: colors.ink },
+  weekArrow: { fontSize: 24, fontWeight: '700', color: colors.ink },
   storyCard: { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 2, borderColor: colors.gold },
   storyLabel: { fontSize: 11, fontWeight: '800', color: '#9A6B00', letterSpacing: 0.5 },
   storyTitle: { fontSize: 20, fontWeight: '700', color: colors.ink, marginTop: 2 },
