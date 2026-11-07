@@ -9,6 +9,9 @@ import type { Progress } from './progressStore';
 
 export type ReportWord = { zh: string; py: string; en: string };
 
+/** One bar of the little seven-day chart. */
+export type DayBar = { date: string; letter: string; xp: number; today: boolean };
+
 export type WeekStats = {
   /** Days in the last seven on which anything was earned. */
   daysActive: number;
@@ -32,9 +35,13 @@ export type WeekStats = {
   lessonsDone: number;
   storiesRead: number;
   charactersWritten: number;
+  /** XP for each of the last seven days, oldest first, for the little chart. */
+  dailyXp: DayBar[];
   /** False on the first few days, when there is no log to compare against. */
   hasHistory: boolean;
 };
+
+const WEEKDAY = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
 function dateKey(d: Date) {
   const y = d.getFullYear();
@@ -92,8 +99,20 @@ export function weekStats(progress: Progress, allWords: Word[]): WeekStats {
 
   const answered = correct + wrong;
 
+  const dailyXp: DayBar[] = thisWeek.map((d) => {
+    // the key is YYYY-MM-DD; read it back as a local date, not a UTC one
+    const [y, m, day] = d.split('-').map(Number);
+    return {
+      date: d,
+      letter: WEEKDAY[new Date(y, m - 1, day).getDay()],
+      xp: days[d]?.xp ?? 0,
+      today: d === today,
+    };
+  });
+
   return {
     daysActive,
+    dailyXp,
     xpThisWeek,
     xpLastWeek,
     newWordsThisWeek,

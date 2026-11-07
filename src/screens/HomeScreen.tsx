@@ -142,8 +142,36 @@ export default function HomeScreen({
         </Card>
       </Pressable>
 
+      <Pressable onPress={onOpenReport}>
+        <Card style={[styles.block, styles.weekCard]}>
+          <View style={styles.weekTop}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.weekLabel}>📊 YOUR WEEK</Text>
+              <Text style={styles.weekHeadline}>
+                {week.daysActive} of 7 days · {week.xpThisWeek} XP
+              </Text>
+            </View>
+            <Text style={styles.weekArrow}>→</Text>
+          </View>
+
+          <WeekChart days={week.dailyXp} />
+
+          <View style={styles.weekFoot}>
+            <Text style={styles.weekFootItem}>
+              <Text style={styles.weekFootNum}>{week.newWordsThisWeek}</Text> new words
+            </Text>
+            <Text style={styles.weekFootItem}>
+              <Text style={styles.weekFootNum}>{week.accuracy === null ? '—' : `${week.accuracy}%`}</Text> right
+            </Text>
+            <Text style={styles.weekFootItem}>
+              <Text style={styles.weekFootNum}>{week.shakyCount}</Text> to firm up
+            </Text>
+          </View>
+        </Card>
+      </Pressable>
+
       <Text style={styles.sectionLabel}>PRACTICE</Text>
-      <View style={styles.tileRow}>
+      <Row>
         <Tile
           emoji="🧠"
           label="Review"
@@ -176,10 +204,10 @@ export default function HomeScreen({
           tint={colors.jadeSoft}
           onPress={() => onOpenTab('talk')}
         />
-      </View>
+      </Row>
 
       <Text style={styles.sectionLabel}>EXPLORE</Text>
-      <View style={styles.tileRow}>
+      <Row>
         <Tile
           emoji="📖"
           art="tab_learn"
@@ -198,14 +226,7 @@ export default function HomeScreen({
           onPress={() => onOpenTab('stories')}
         />
         <Tile emoji="🐼" label="Panda" badge={petBadge} tint={colors.jadeSoft} highlight={rewardWaiting} onPress={onOpenPet} />
-        <Tile
-          emoji="📊"
-          label="Your week"
-          badge={`${week.daysActive}/7 days`}
-          tint={colors.goldSoft}
-          onPress={onOpenReport}
-        />
-      </View>
+      </Row>
 
       <Card style={styles.wotd}>
         <View style={{ flex: 1 }}>
@@ -218,6 +239,44 @@ export default function HomeScreen({
         <SpeakButton text={word.hanzi} size={48} />
       </Card>
     </ScrollView>
+  );
+}
+
+/** A row of tiles that scrolls sideways and runs off both edges of the screen. */
+function Row({ children }: { children: React.ReactNode }) {
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      style={styles.rowBleed}
+      contentContainerStyle={styles.rowInner}
+    >
+      {children}
+    </ScrollView>
+  );
+}
+
+/** Seven bars, one per day, tallest being the best day of the week. */
+function WeekChart({ days }: { days: { date: string; letter: string; xp: number; today: boolean }[] }) {
+  const most = Math.max(...days.map((d) => d.xp), 1);
+  return (
+    <View style={styles.chart}>
+      {days.map((d) => (
+        <View key={d.date} style={styles.chartCol}>
+          <View style={styles.chartTrack}>
+            <View
+              style={[
+                styles.chartBar,
+                { height: Math.max(3, Math.round((d.xp / most) * 46)) },
+                d.today && { backgroundColor: colors.red },
+                d.xp === 0 && styles.chartBarEmpty,
+              ]}
+            />
+          </View>
+          <Text style={[styles.chartDay, d.today && styles.chartDayToday]}>{d.letter}</Text>
+        </View>
+      ))}
+    </View>
   );
 }
 
@@ -301,10 +360,10 @@ const styles = StyleSheet.create({
   arrow: { color: '#fff', fontSize: 28, fontWeight: '700', marginLeft: 12 },
 
   sectionLabel: { fontSize: 12, fontWeight: '800', color: colors.muted, letterSpacing: 1, marginTop: 14, marginBottom: 7 },
-  tileRow: { flexDirection: 'row', gap: 8 },
+  rowBleed: { marginHorizontal: -20 },
+  rowInner: { paddingHorizontal: 20, gap: 8 },
   tile: {
-    flex: 1,
-    minWidth: 0,
+    width: 100,
     alignItems: 'center',
     backgroundColor: colors.card,
     borderRadius: radius.md,
@@ -315,11 +374,27 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   tileOn: { borderColor: colors.gold, borderWidth: 2 },
-  tileIcon: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
-  tileEmoji: { fontSize: 22 },
-  tileLabel: { fontSize: 12, fontWeight: '800', color: colors.ink },
-  tileBadge: { fontSize: 10, color: colors.muted },
+  tileIcon: { width: 46, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center' },
+  tileEmoji: { fontSize: 24 },
+  tileLabel: { fontSize: 13, fontWeight: '800', color: colors.ink },
+  tileBadge: { fontSize: 11, color: colors.muted },
   tileBadgeOn: { color: '#9A6B00', fontWeight: '800' },
+
+  weekCard: { backgroundColor: colors.goldSoft, borderWidth: 2, borderColor: colors.gold },
+  weekTop: { flexDirection: 'row', alignItems: 'center' },
+  weekLabel: { fontSize: 11, fontWeight: '800', color: '#9A6B00', letterSpacing: 1 },
+  weekHeadline: { fontSize: 21, fontWeight: '800', color: colors.ink, marginTop: 3 },
+  weekArrow: { fontSize: 24, fontWeight: '700', color: '#9A6B00', marginLeft: 12 },
+  chart: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, marginTop: 14 },
+  chartCol: { flex: 1, alignItems: 'center', gap: 5 },
+  chartTrack: { height: 46, justifyContent: 'flex-end', alignSelf: 'stretch' },
+  chartBar: { width: 20, alignSelf: 'center', borderRadius: 5, backgroundColor: colors.gold },
+  chartBarEmpty: { backgroundColor: '#E8DCC2' },
+  chartDay: { fontSize: 11, color: colors.muted, fontWeight: '700' },
+  chartDayToday: { color: colors.red, fontWeight: '800' },
+  weekFoot: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 14, gap: 8 },
+  weekFootItem: { fontSize: 12, color: colors.muted },
+  weekFootNum: { fontSize: 14, fontWeight: '800', color: colors.ink },
 
   wotd: { marginTop: 16, flexDirection: 'row', alignItems: 'center', gap: 12 },
   wotdLabel: { fontSize: 11, fontWeight: '800', color: colors.muted, letterSpacing: 0.5 },
