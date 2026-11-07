@@ -46,8 +46,8 @@ export default function QuizScreen({ presetLessonId, onPresetUsed }: { presetLes
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const start = (lessonId: string | null) => {
-    const pool = lessonId ? lessons.find((l) => l.id === lessonId)?.words ?? allWords : allWords;
+  const start = (lessonId: string) => {
+    const pool = lessons.find((l) => l.id === lessonId)?.words ?? allWords;
     setPhase({ name: 'play', questions: buildQuiz(pool) });
   };
 
@@ -136,16 +136,6 @@ export default function QuizScreen({ presetLessonId, onPresetUsed }: { presetLes
       </Pressable>
 
       {!!error && <Text style={styles.error}>{error}</Text>}
-
-      <Pressable onPress={() => start(null)}>
-        <Card style={[styles.option, styles.featured]}>
-          <Text style={styles.optionEmoji}>🎲</Text>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.optionTitle, { color: '#fff' }]}>Mixed quiz</Text>
-            <Text style={[styles.optionSub, { color: '#FFE9E6' }]}>Words from every lesson</Text>
-          </View>
-        </Card>
-      </Pressable>
 
       <Text style={styles.section}>Or pick a lesson</Text>
       {lessons.map((l) => (
@@ -296,7 +286,6 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 15, color: colors.muted, marginTop: 4, marginBottom: 16, lineHeight: 21 },
   section: { fontSize: 13, fontWeight: '800', color: colors.muted, letterSpacing: 1, marginTop: 24, marginBottom: 2, textTransform: 'uppercase' },
   option: { flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 10 },
-  featured: { backgroundColor: colors.red, paddingVertical: 20 },
   coachOption: { backgroundColor: colors.jade, paddingVertical: 20, marginTop: 0 },
   optionOff: { opacity: 0.55 },
   error: { fontSize: 14, color: colors.wrong, marginTop: 10, lineHeight: 20 },
