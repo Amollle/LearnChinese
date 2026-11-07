@@ -171,7 +171,6 @@ export default function HomeScreen({
         </Card>
       </Pressable>
 
-      <Text style={styles.sectionLabel}>EVERYTHING</Text>
       {/* One row for the whole app, ordered by what gets opened most. */}
       <Row>
         <Tile
@@ -359,8 +358,7 @@ const styles = StyleSheet.create({
   continueSub: { color: '#FFE9E6', fontSize: 14, marginTop: 4 },
   arrow: { color: '#fff', fontSize: 28, fontWeight: '700', marginLeft: 12 },
 
-  sectionLabel: { fontSize: 12, fontWeight: '800', color: colors.muted, letterSpacing: 1, marginTop: 14, marginBottom: 7 },
-  rowBleed: { marginHorizontal: -20 },
+  rowBleed: { marginHorizontal: -20, marginTop: 16 },
   rowInner: { paddingHorizontal: 20, gap: 8 },
   tile: {
     width: 100,
