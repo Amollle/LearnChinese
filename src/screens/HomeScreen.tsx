@@ -48,10 +48,22 @@ export default function HomeScreen({
 
   return (
     <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-      <Text style={styles.hello}>你好, {user?.name}! 👋</Text>
-      <Text style={styles.subtitle}>
-        {user?.level ? `Level: ${user.level} · ` : ''}Let's learn some Chinese today.
-      </Text>
+      <View style={styles.topRow}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.hello}>你好, {user?.name}! 👋</Text>
+          <Text style={styles.subtitle}>
+            {user?.level ? `Level: ${user.level} · ` : ''}Let's learn some Chinese today.
+          </Text>
+        </View>
+        <Pressable
+          onPress={onOpenSettings}
+          accessibilityLabel="Settings"
+          hitSlop={8}
+          style={({ pressed }) => [styles.gear, pressed && { backgroundColor: colors.line }]}
+        >
+          <Text style={styles.gearIcon}>⚙️</Text>
+        </Pressable>
+      </View>
 
       <PetHero onOpen={onOpenPet} />
 
@@ -150,11 +162,6 @@ export default function HomeScreen({
       <Button title="Take a quick quiz" onPress={onStartQuiz} variant="secondary" style={styles.block} />
 
       <Text style={styles.version}>App version 31 · Story filters · {supabaseConfigured ? 'synced to cloud ☁️' : 'saved on this phone'}</Text>
-      <View style={styles.footerLinks}>
-        <Pressable onPress={onOpenSettings} hitSlop={8}>
-          <Text style={styles.resetText}>⚙️  Settings</Text>
-        </Pressable>
-      </View>
     </ScrollView>
   );
 }
@@ -171,8 +178,11 @@ function Stat({ value, label, emoji }: { value: string; label: string; emoji: st
 
 const styles = StyleSheet.create({
   container: { padding: 20, paddingBottom: 40 },
+  topRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   hello: { fontSize: 28, fontWeight: '800', color: colors.ink },
   subtitle: { fontSize: 16, color: colors.muted, marginTop: 2, marginBottom: 14 },
+  gear: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.line, alignItems: 'center', justifyContent: 'center', marginTop: 2 },
+  gearIcon: { fontSize: 22 },
   statsRow: { flexDirection: 'row', gap: 10 },
   stat: { flex: 1, alignItems: 'center', paddingVertical: 14, paddingHorizontal: 6 },
   statEmoji: { fontSize: 22 },
@@ -206,6 +216,4 @@ const styles = StyleSheet.create({
   storyTitle: { fontSize: 20, fontWeight: '700', color: colors.ink, marginTop: 2 },
   storyArrow: { fontSize: 24, fontWeight: '700', color: colors.ink },
   version: { fontSize: 12, color: colors.muted, textAlign: 'center', marginTop: 24 },
-  footerLinks: { flexDirection: 'row', justifyContent: 'center', flexWrap: 'wrap', gap: 20, marginTop: 28 },
-  resetText: { color: colors.muted, fontSize: 13, textDecorationLine: 'underline' },
 });
