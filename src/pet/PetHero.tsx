@@ -16,7 +16,7 @@ export default function PetHero({ onOpen }: { onOpen: () => void }) {
   if (!pet) {
     return (
       <Pressable onPress={onOpen} style={({ pressed }) => [styles.hero, styles.adopt, pressed && { opacity: 0.9 }]}>
-        <Panda mood="happy" size={150} />
+        <Panda mood="happy" size={134} />
         <Text style={styles.adoptTitle}>A panda is waiting for you! 🐼</Text>
         <Text style={styles.adoptSub}>Adopt it, name it, and earn coins to feed and dress it up every time you reach your daily goal.</Text>
         <View style={styles.cta}>
@@ -53,7 +53,7 @@ export default function PetHero({ onOpen }: { onOpen: () => void }) {
         </Text>
       </Pressable>
 
-      <Panda mood={mood} wearing={pet.wearing} size={170} onPress={onOpen} />
+      <Panda mood={mood} wearing={pet.wearing} size={148} onPress={onOpen} />
 
       <View style={styles.meters}>
         <Meter label="饱 Full" value={pet.hunger} color={pet.hunger < 25 ? colors.wrong : colors.gold} />
@@ -92,23 +92,23 @@ function Meter({ label, value, color }: { label: string; value: number; color: s
 }
 
 const styles = StyleSheet.create({
-  hero: { backgroundColor: '#EAF5EF', borderRadius: radius.lg, padding: 16, alignItems: 'center', marginTop: 4, borderWidth: 2, borderColor: '#CFE8DA', ...shadow },
+  hero: { backgroundColor: '#EAF5EF', borderRadius: radius.lg, padding: 13, alignItems: 'center', marginTop: 2, borderWidth: 2, borderColor: '#CFE8DA', ...shadow },
   heroNeedy: { backgroundColor: '#FDF0E6', borderColor: '#F3D2B8' },
-  adopt: { paddingVertical: 20 },
+  adopt: { paddingVertical: 16 },
   adoptTitle: { fontSize: 22, fontWeight: '800', color: colors.ink, marginTop: 8, textAlign: 'center' },
   adoptSub: { fontSize: 14, color: colors.muted, textAlign: 'center', marginTop: 6, lineHeight: 20 },
   topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', alignSelf: 'stretch' },
-  name: { fontSize: 24, fontWeight: '800', color: colors.ink },
+  name: { fontSize: 22, fontWeight: '800', color: colors.ink },
   coins: { backgroundColor: '#fff', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 5 },
   coinsText: { fontSize: 16, fontWeight: '800', color: colors.ink },
-  bubble: { backgroundColor: '#fff', borderRadius: radius.md, paddingHorizontal: 14, paddingVertical: 7, alignItems: 'center', marginTop: 8, borderWidth: 2, borderColor: colors.line },
+  bubble: { backgroundColor: '#fff', borderRadius: radius.md, paddingHorizontal: 14, paddingVertical: 6, alignItems: 'center', marginTop: 6, borderWidth: 2, borderColor: colors.line },
   bubbleZh: { fontSize: 19, fontWeight: '700', color: colors.ink },
   bubbleEn: { fontSize: 12, color: colors.muted, marginTop: 1 },
-  meters: { flexDirection: 'row', gap: 14, alignSelf: 'stretch', marginTop: 4 },
+  meters: { flexDirection: 'row', gap: 14, alignSelf: 'stretch', marginTop: 2 },
   meterLabel: { fontSize: 13, fontWeight: '700', color: colors.ink, marginBottom: 4 },
   meterPct: { fontWeight: '600', color: colors.muted },
-  cta: { alignSelf: 'stretch', backgroundColor: colors.jade, borderRadius: radius.md, paddingVertical: 13, alignItems: 'center', marginTop: 14 },
+  cta: { alignSelf: 'stretch', backgroundColor: colors.jade, borderRadius: radius.md, paddingVertical: 11, alignItems: 'center', marginTop: 11 },
   ctaGold: { backgroundColor: colors.gold },
   ctaText: { color: '#fff', fontSize: 17, fontWeight: '800' },
-  hint: { fontSize: 12, color: colors.muted, marginTop: 8 },
+  hint: { fontSize: 12, color: colors.muted, marginTop: 6 },
 });

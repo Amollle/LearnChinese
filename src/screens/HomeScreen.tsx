@@ -83,8 +83,8 @@ export default function HomeScreen({
       <View style={styles.topRow}>
         <View style={{ flex: 1 }}>
           <Text style={styles.hello}>你好, {user?.name}! 👋</Text>
-          <Text style={styles.subtitle}>
-            {user?.level ? `Level: ${user.level} · ` : ''}Let’s learn some Chinese today.
+          <Text style={styles.subtitle} numberOfLines={1}>
+            {user?.level ? `Level: ${user.level}` : 'Let’s learn some Chinese today.'}
           </Text>
         </View>
         <Pressable
@@ -279,10 +279,10 @@ const styles = StyleSheet.create({
   container: { padding: 20, paddingBottom: 40 },
   topRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   hello: { fontSize: 28, fontWeight: '800', color: colors.ink },
-  subtitle: { fontSize: 16, color: colors.muted, marginTop: 2, marginBottom: 14 },
+  subtitle: { fontSize: 16, color: colors.muted, marginTop: 2, marginBottom: 12 },
   gear: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.line, alignItems: 'center', justifyContent: 'center', marginTop: 2 },
 
-  strip: { marginTop: 14, paddingVertical: 12 },
+  strip: { marginTop: 12, paddingVertical: 12 },
   stripRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
   stripItem: { flex: 1, alignItems: 'center' },
   stripLine: { width: 1, height: 28, backgroundColor: colors.line },
@@ -292,7 +292,7 @@ const styles = StyleSheet.create({
   muted: { fontSize: 13, color: colors.muted },
   changeGoal: { fontSize: 13, fontWeight: '800', color: colors.red, marginLeft: 10 },
 
-  block: { marginTop: 14 },
+  block: { marginTop: 12 },
   continueCard: { backgroundColor: colors.red },
   continueLabel: { color: '#FFD9D4', fontSize: 12, fontWeight: '800', letterSpacing: 1, marginBottom: 6 },
   continueRow: { flexDirection: 'row', alignItems: 'center' },
@@ -300,7 +300,7 @@ const styles = StyleSheet.create({
   continueSub: { color: '#FFE9E6', fontSize: 14, marginTop: 4 },
   arrow: { color: '#fff', fontSize: 28, fontWeight: '700', marginLeft: 12 },
 
-  sectionLabel: { fontSize: 12, fontWeight: '800', color: colors.muted, letterSpacing: 1, marginTop: 20, marginBottom: 8 },
+  sectionLabel: { fontSize: 12, fontWeight: '800', color: colors.muted, letterSpacing: 1, marginTop: 14, marginBottom: 7 },
   tileRow: { flexDirection: 'row', gap: 8 },
   tile: {
     flex: 1,
@@ -321,7 +321,7 @@ const styles = StyleSheet.create({
   tileBadge: { fontSize: 10, color: colors.muted },
   tileBadgeOn: { color: '#9A6B00', fontWeight: '800' },
 
-  wotd: { marginTop: 20, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  wotd: { marginTop: 16, flexDirection: 'row', alignItems: 'center', gap: 12 },
   wotdLabel: { fontSize: 11, fontWeight: '800', color: colors.muted, letterSpacing: 0.5 },
   wotdHanzi: { fontSize: 30, color: colors.ink, fontWeight: '600', marginTop: 4 },
   wotdPinyin: { fontSize: 17, color: colors.red, fontWeight: '600' },
