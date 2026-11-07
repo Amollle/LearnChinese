@@ -60,9 +60,9 @@ export default function HomeScreen({
           onPress={onOpenSettings}
           accessibilityLabel="Settings"
           hitSlop={8}
-          style={({ pressed }) => [styles.gear, pressed && { backgroundColor: colors.line }]}
+          style={({ pressed }) => [styles.gear, pressed && { backgroundColor: colors.redSoft }]}
         >
-          <GearIcon size={22} color={colors.muted} />
+          <GearIcon size={24} />
         </Pressable>
       </View>
 
