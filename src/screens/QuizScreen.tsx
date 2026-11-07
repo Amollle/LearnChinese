@@ -114,7 +114,7 @@ export default function QuizScreen({ presetLessonId, onPresetUsed }: { presetLes
         <PetBuddy size={56} />
       </View>
       <Text style={styles.subtitle}>
-        {QUIZ_LENGTH} questions mixing reading, meaning and listening. Earn {XP_PER_CORRECT} XP for each right answer.
+        {QUIZ_LENGTH} questions mixing reading, meaning and listening. Earn {XP_PER_CORRECT} XP for each correct answer.
       </Text>
 
       <Pressable onPress={startCoachQuiz} disabled={busy || !aiConfigured || !enoughWords}>

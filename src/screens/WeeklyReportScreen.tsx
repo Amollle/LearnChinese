@@ -74,7 +74,7 @@ export default function WeeklyReportScreen({ onClose }: { onClose: () => void })
         {stats.accuracy !== null && (
           <Card style={styles.block}>
             <View style={styles.rowBetween}>
-              <Text style={styles.cardTitle}>Answers you got right</Text>
+              <Text style={styles.cardTitle}>Answers you got correct</Text>
               <Text style={styles.muted}>{stats.accuracy}%</Text>
             </View>
             <ProgressBar

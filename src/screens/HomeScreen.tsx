@@ -162,7 +162,7 @@ export default function HomeScreen({
               <Text style={styles.weekFootNum}>{week.newWordsThisWeek}</Text> new words
             </Text>
             <Text style={styles.weekFootItem}>
-              <Text style={styles.weekFootNum}>{week.accuracy === null ? '—' : `${week.accuracy}%`}</Text> right
+              <Text style={styles.weekFootNum}>{week.accuracy === null ? '—' : `${week.accuracy}%`}</Text> correct
             </Text>
             <Text style={styles.weekFootItem}>
               <Text style={styles.weekFootNum}>{week.shakyCount}</Text> need work
