@@ -150,6 +150,7 @@ export default function HomeScreen({
               <Text style={styles.weekHeadline}>
                 {week.daysActive} of 7 days · {week.xpThisWeek} XP
               </Text>
+              <Text style={styles.weekSub}>How much XP you earned each day</Text>
             </View>
             <Text style={styles.weekArrow}>→</Text>
           </View>
@@ -164,7 +165,7 @@ export default function HomeScreen({
               <Text style={styles.weekFootNum}>{week.accuracy === null ? '—' : `${week.accuracy}%`}</Text> right
             </Text>
             <Text style={styles.weekFootItem}>
-              <Text style={styles.weekFootNum}>{week.shakyCount}</Text> to firm up
+              <Text style={styles.weekFootNum}>{week.shakyCount}</Text> need work
             </Text>
           </View>
         </Card>
@@ -273,7 +274,9 @@ function WeekChart({ days }: { days: { date: string; letter: string; xp: number;
               ]}
             />
           </View>
-          <Text style={[styles.chartDay, d.today && styles.chartDayToday]}>{d.letter}</Text>
+          <Text style={[styles.chartDay, d.today && styles.chartDayToday]} numberOfLines={1}>
+            {d.today ? 'today' : d.letter}
+          </Text>
         </View>
       ))}
     </View>
@@ -384,13 +387,14 @@ const styles = StyleSheet.create({
   weekTop: { flexDirection: 'row', alignItems: 'center' },
   weekLabel: { fontSize: 11, fontWeight: '800', color: '#9A6B00', letterSpacing: 1 },
   weekHeadline: { fontSize: 21, fontWeight: '800', color: colors.ink, marginTop: 3 },
+  weekSub: { fontSize: 12, color: '#9A6B00', marginTop: 3 },
   weekArrow: { fontSize: 24, fontWeight: '700', color: '#9A6B00', marginLeft: 12 },
-  chart: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, marginTop: 14 },
-  chartCol: { flex: 1, alignItems: 'center', gap: 5 },
+  chart: { flexDirection: 'row', alignItems: 'flex-end', gap: 4, marginTop: 12 },
+  chartCol: { flex: 1, minWidth: 0, alignItems: 'center', gap: 5 },
   chartTrack: { height: 46, justifyContent: 'flex-end', alignSelf: 'stretch' },
   chartBar: { width: 20, alignSelf: 'center', borderRadius: 5, backgroundColor: colors.gold },
   chartBarEmpty: { backgroundColor: '#E8DCC2' },
-  chartDay: { fontSize: 11, color: colors.muted, fontWeight: '700' },
+  chartDay: { fontSize: 10, color: colors.muted, fontWeight: '700' },
   chartDayToday: { color: colors.red, fontWeight: '800' },
   weekFoot: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 14, gap: 8 },
   weekFootItem: { fontSize: 12, color: colors.muted },

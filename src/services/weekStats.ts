@@ -41,7 +41,7 @@ export type WeekStats = {
   hasHistory: boolean;
 };
 
-const WEEKDAY = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+const WEEKDAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 function dateKey(d: Date) {
   const y = d.getFullYear();
