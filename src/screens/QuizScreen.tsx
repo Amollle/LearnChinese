@@ -1,13 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import PetBuddy, { petReact } from '../pet/PetBuddy';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Button, Card, ProgressBar, SpeakButton, speakChinese } from '../components/ui';
 import { useProgress } from '../context/ProgressContext';
 import { allWords, lessons, Word } from '../data/lessons';
+import { aiConfigured, AiUnavailable, getCustomQuiz } from '../services/ai';
+import { MIN_WORDS_FOR_COACH_QUIZ, quizCandidates, resolvePlan } from '../services/coachQuiz';
 import { colors, radius } from '../theme';
 
 type Kind = 'en2zh' | 'zh2en' | 'listen';
-type Question = { kind: Kind; word: Word; options: Word[] };
+/** `why` is the coach's one-liner, shown after the learner answers. */
+type Question = { kind: Kind; word: Word; options: Word[]; why?: string };
 
 const QUIZ_LENGTH = 10;
 const XP_PER_CORRECT = 10;
@@ -32,14 +35,41 @@ function buildQuiz(pool: Word[]): Question[] {
   });
 }
 
-type Phase = { name: 'setup' } | { name: 'play'; questions: Question[] } | { name: 'results'; score: number; total: number };
+type Phase =
+  | { name: 'setup' }
+  | { name: 'play'; questions: Question[]; note?: string }
+  | { name: 'results'; score: number; total: number };
 
 export default function QuizScreen({ presetLessonId, onPresetUsed }: { presetLessonId?: string | null; onPresetUsed?: () => void }) {
   const [phase, setPhase] = useState<Phase>({ name: 'setup' });
+  const { progress } = useProgress();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const start = (lessonId: string | null) => {
     const pool = lessonId ? lessons.find((l) => l.id === lessonId)?.words ?? allWords : allWords;
     setPhase({ name: 'play', questions: buildQuiz(pool) });
+  };
+
+  const enoughWords = progress.learned.length >= MIN_WORDS_FOR_COACH_QUIZ;
+
+  const startCoachQuiz = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const candidates = quizCandidates(progress);
+      const plan = await getCustomQuiz({ candidates, count: QUIZ_LENGTH });
+      const { questions, note } = resolvePlan(plan, candidates);
+      if (questions.length === 0) {
+        setError('The coach could not put a quiz together this time. Try a mixed quiz instead.');
+        return;
+      }
+      setPhase({ name: 'play', questions, note });
+    } catch (e) {
+      setError(e instanceof AiUnavailable ? e.message : 'Something went wrong building your quiz.');
+    } finally {
+      setBusy(false);
+    }
   };
 
   useEffect(() => {
@@ -54,6 +84,7 @@ export default function QuizScreen({ presetLessonId, onPresetUsed }: { presetLes
     return (
       <QuizPlay
         questions={phase.questions}
+        note={phase.note}
         onFinish={(score) => setPhase({ name: 'results', score, total: phase.questions.length })}
         onQuit={() => setPhase({ name: 'setup' })}
       />
@@ -86,6 +117,26 @@ export default function QuizScreen({ presetLessonId, onPresetUsed }: { presetLes
         {QUIZ_LENGTH} questions mixing reading, meaning and listening. Earn {XP_PER_CORRECT} XP for each right answer.
       </Text>
 
+      <Pressable onPress={startCoachQuiz} disabled={busy || !aiConfigured || !enoughWords}>
+        <Card style={[styles.option, styles.coachOption, (!aiConfigured || !enoughWords) && styles.optionOff]}>
+          {busy ? <ActivityIndicator color="#fff" style={styles.optionSpinner} /> : <Text style={styles.optionEmoji}>✨</Text>}
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.optionTitle, { color: '#fff' }]}>Made for you</Text>
+            <Text style={[styles.optionSub, { color: '#E1F2EC' }]}>
+              {busy
+                ? 'Your coach is looking at what you keep forgetting…'
+                : !aiConfigured
+                  ? 'Not connected yet'
+                  : !enoughWords
+                    ? `Learn ${MIN_WORDS_FOR_COACH_QUIZ} words first`
+                    : 'Your coach picks the words you keep getting wrong'}
+            </Text>
+          </View>
+        </Card>
+      </Pressable>
+
+      {!!error && <Text style={styles.error}>{error}</Text>}
+
       <Pressable onPress={() => start(null)}>
         <Card style={[styles.option, styles.featured]}>
           <Text style={styles.optionEmoji}>🎲</Text>
@@ -114,10 +165,12 @@ export default function QuizScreen({ presetLessonId, onPresetUsed }: { presetLes
 
 function QuizPlay({
   questions,
+  note,
   onFinish,
   onQuit,
 }: {
   questions: Question[];
+  note?: string;
   onFinish: (score: number) => void;
   onQuit: () => void;
 }) {
@@ -172,6 +225,7 @@ function QuizPlay({
       </View>
 
       <ScrollView contentContainerStyle={styles.playBody}>
+        {!!note && i === 0 && <Text style={styles.coachNote}>✨ {note}</Text>}
         <Text style={styles.prompt}>{prompt}</Text>
 
         <Card style={styles.promptCard}>
@@ -215,6 +269,12 @@ function QuizPlay({
             </Pressable>
           );
         })}
+
+        {chosen && !!q.why && (
+          <View style={styles.whyBox}>
+            <Text style={styles.whyText}>✨ {q.why}</Text>
+          </View>
+        )}
       </ScrollView>
 
       {chosen && (
@@ -237,7 +297,14 @@ const styles = StyleSheet.create({
   section: { fontSize: 13, fontWeight: '800', color: colors.muted, letterSpacing: 1, marginTop: 24, marginBottom: 2, textTransform: 'uppercase' },
   option: { flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 10 },
   featured: { backgroundColor: colors.red, paddingVertical: 20 },
+  coachOption: { backgroundColor: colors.jade, paddingVertical: 20, marginTop: 0 },
+  optionOff: { opacity: 0.55 },
+  error: { fontSize: 14, color: colors.wrong, marginTop: 10, lineHeight: 20 },
+  coachNote: { fontSize: 14, color: colors.jade, fontWeight: '700', lineHeight: 20, marginBottom: 12 },
+  whyBox: { backgroundColor: colors.jadeSoft, borderRadius: radius.md, padding: 12, marginTop: 14 },
+  whyText: { fontSize: 14, color: colors.ink, lineHeight: 20 },
   optionEmoji: { fontSize: 28 },
+  optionSpinner: { width: 28, alignItems: 'center' },
   optionTitle: { fontSize: 17, fontWeight: '700', color: colors.ink },
   optionSub: { fontSize: 14, color: colors.muted, marginTop: 2 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },

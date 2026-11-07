@@ -43,6 +43,19 @@ export type WrittenReport = {
   practice: CoachPhrase[];
 };
 
+/** One of the learner's words, as offered to the coach when it builds a quiz. */
+export type QuizCandidate = { id: string; zh: string; py: string; en: string; box: number };
+
+/**
+ * The coach's quiz, as ids only. Nothing here is shown to the learner as it
+ * stands — the app looks every id up in its own word list first — so the AI
+ * cannot put wrong Chinese in front of them.
+ */
+export type QuizPlan = {
+  note: string;
+  questions: { id: string; kind: string; distractors: string[]; why?: string }[];
+};
+
 /** Thrown for anything the learner might be able to fix (offline, signed out). */
 export class AiUnavailable extends Error {}
 
@@ -115,6 +128,11 @@ export function takeTurn(args: {
 /** A written report on the learner's week, from numbers the app worked out. */
 export function getWeeklyReport(args: { stats: WeekStats; known: string[] }): Promise<WrittenReport> {
   return call<WrittenReport>({ action: 'report', ...args });
+}
+
+/** A quiz aimed at the words the learner keeps getting wrong. */
+export function getCustomQuiz(args: { candidates: QuizCandidate[]; count: number }): Promise<QuizPlan> {
+  return call<QuizPlan>({ action: 'quiz', ...args });
 }
 
 /** The coach's thoughts once the conversation is over. */

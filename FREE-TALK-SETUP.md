@@ -1,12 +1,16 @@
-# Turning on Free talk and the weekly report
+# Turning on the AI parts of the app
 
 Free talk is the ✨ card at the top of the **Talk** tab. Until you finish these
 steps it shows "Not connected yet" and does nothing — the six scripted
 conversations keep working exactly as before, online or off.
 
-The same setup also switches on the written part of **Your week**, the report
-card on Home. The numbers in that report are worked out on the phone and show
-either way; only the coach's write-up needs these steps.
+The same setup switches on two more things:
+
+- the written part of **Your week**, the report card on Home — its numbers are
+  worked out on the phone and show either way, so only the coach's write-up
+  needs these steps;
+- **Made for you** at the top of the **Quiz** tab, where the coach picks the
+  words you keep getting wrong.
 
 **This costs nothing.** It uses Google's Gemini, whose free tier needs no
 credit card, and Supabase's free tier for the server part. You only do this
@@ -139,7 +143,8 @@ plain English near the top:
 
 - `PERSONA` — its personality and the safety rules
 - `VOCAB_RULE` — how closely it sticks to words the learner knows
-- the JSON blocks inside `handleTurn` and `handleCoach` — what it sends back
+- the JSON blocks inside `handleTurn`, `handleCoach`, `handleReport` and
+  `handleQuiz` — what each one sends back
 
 Edit the wording, run `npx supabase functions deploy talk` again, and the
 change is live. No need to rebuild the app.

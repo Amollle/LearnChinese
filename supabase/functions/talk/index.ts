@@ -211,6 +211,46 @@ async function handleReport(body: { stats?: unknown; known?: string[] }) {
   });
 }
 
+/**
+ * A quiz aimed at what the learner keeps getting wrong.
+ *
+ * This only ever returns ids that the app sent in, never Chinese of its own,
+ * so a confident mistake cannot end up being marked as the right answer. The
+ * app looks every id back up in its own word list and throws away anything it
+ * does not recognise.
+ */
+async function handleQuiz(body: { candidates?: unknown; count?: number }) {
+  const candidates = JSON.stringify(body.candidates ?? []);
+  const count = Math.max(4, Math.min(10, Number(body.count) || 10));
+
+  const system =
+    `You are a Mandarin teacher building a short quiz for a beginner in a learning app. ` +
+    `You are given the words the learner has studied. Each has a "box" from 0 to 6: 0 means it keeps ` +
+    `being forgotten, 6 means it has really stuck.\n\n` +
+    `Choose ${count} words to test, favouring low boxes but leaving room for a couple they know, so the ` +
+    `quiz is winnable. For each, choose three wrong answers from the same list that are genuinely easy to ` +
+    `confuse with it — the same sound with a different tone, a character that looks alike, a word from the ` +
+    `same situation. Never pick a wrong answer that means the same thing as the right one.\n\n` +
+    `Use only ids from the list. Do not invent words, and do not write any Chinese yourself.\n\n` +
+    `Answer with JSON in this shape:\n` +
+    `{\n` +
+    `  "note": "one sentence to the learner on what this quiz is focusing on",\n` +
+    `  "questions": [\n` +
+    `    { "id": "the word being tested", "kind": "en2zh" | "zh2en" | "listen",\n` +
+    `      "distractors": ["id", "id", "id"],\n` +
+    `      "why": "one short line, shown after they answer, on why these were easy to mix up" }\n` +
+    `  ]\n` +
+    `}\n\n` +
+    `Mix the three kinds roughly evenly. "listen" plays the word aloud, so use it for words whose sound is ` +
+    `the hard part. Keep every "why" short, kind and specific.`;
+
+  const out = await ask(system, `The learner's words:\n${candidates}\n\nBuild the quiz.`, 2000);
+  return json({
+    note: String(out.note ?? ''),
+    questions: Array.isArray(out.questions) ? out.questions.slice(0, count) : [],
+  });
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   if (req.method !== 'POST') return json({ error: 'Use POST' }, 405);
@@ -219,6 +259,7 @@ Deno.serve(async (req: Request) => {
     const body = await req.json();
     if (body.action === 'coach') return await handleCoach(body);
     if (body.action === 'report') return await handleReport(body);
+    if (body.action === 'quiz') return await handleQuiz(body);
     return await handleTurn(body);
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
