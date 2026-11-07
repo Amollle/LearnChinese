@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Button, Card, ProgressBar, SpeakButton } from '../components/ui';
 import { useAuth } from '../context/AuthContext';
 import { supabaseConfigured } from '../lib/supabase';
@@ -25,16 +25,18 @@ export default function HomeScreen({
   onStartReview,
   onOpenPet,
   onOpenStory,
+  onOpenSettings,
 }: {
   onOpenLesson: (id: string) => void;
   onStartQuiz: () => void;
   onStartReview: () => void;
   onOpenPet: () => void;
   onOpenStory: (id: string) => void;
+  onOpenSettings: () => void;
 }) {
-  const { progress, resetAll, dueWordIds, dailyGoal } = useProgress();
+  const { progress, dueWordIds, dailyGoal } = useProgress();
   const [goalPickerOpen, setGoalPickerOpen] = useState(false);
-  const { user, logOut, retakePlacement } = useAuth();
+  const { user } = useAuth();
   const word = wordOfTheDay();
   const startIndex = Math.max(0, lessons.findIndex((l) => l.id === user?.startLessonId));
   const nextLesson =
@@ -43,12 +45,6 @@ export default function HomeScreen({
     lessons[startIndex];
   const nextDone = nextLesson.words.filter((w) => progress.learned.includes(w.id)).length;
   const goalReached = progress.xpToday >= dailyGoal;
-
-  const confirmReset = () =>
-    Alert.alert('Reset progress?', 'This clears your XP, streak and learned words.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Reset', style: 'destructive', onPress: resetAll },
-    ]);
 
   return (
     <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
@@ -155,14 +151,8 @@ export default function HomeScreen({
 
       <Text style={styles.version}>App version 31 · Story filters · {supabaseConfigured ? 'synced to cloud ☁️' : 'saved on this phone'}</Text>
       <View style={styles.footerLinks}>
-        <Pressable onPress={retakePlacement} hitSlop={8}>
-          <Text style={styles.resetText}>Retake placement quiz</Text>
-        </Pressable>
-        <Pressable onPress={confirmReset} hitSlop={8}>
-          <Text style={styles.resetText}>Reset progress</Text>
-        </Pressable>
-        <Pressable onPress={logOut} hitSlop={8}>
-          <Text style={[styles.resetText, { color: colors.red }]}>Log out</Text>
+        <Pressable onPress={onOpenSettings} hitSlop={8}>
+          <Text style={styles.resetText}>⚙️  Settings</Text>
         </Pressable>
       </View>
     </ScrollView>

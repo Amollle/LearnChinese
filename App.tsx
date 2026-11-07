@@ -12,6 +12,7 @@ import { lessons } from './src/data/lessons';
 import AuthScreen from './src/screens/AuthScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import ReviewScreen from './src/screens/ReviewScreen';
+import SettingsScreen from './src/screens/SettingsScreen';
 import TalkScreen from './src/screens/TalkScreen';
 import PicturesScreen from './src/screens/PicturesScreen';
 import PlacementScreen from './src/screens/PlacementScreen';
@@ -90,6 +91,7 @@ function Main() {
   const [tab, setTab] = useState<Tab>('home');
   const [openLessonId, setOpenLessonId] = useState<string | null>(null);
   const [reviewOpen, setReviewOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [quizPreset, setQuizPreset] = useState<string | null>(null);
   // the open book in the Stories tab (null = the bookshelf)
   const [storyId, setStoryId] = useState<string | null>(null);
@@ -99,6 +101,10 @@ function Main() {
 
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (settingsOpen) {
+        setSettingsOpen(false);
+        return true;
+      }
       if (reviewOpen) {
         setReviewOpen(false);
         return true;
@@ -114,7 +120,7 @@ function Main() {
       return false;
     });
     return () => sub.remove();
-  }, [openLessonId, tab, reviewOpen]);
+  }, [openLessonId, tab, reviewOpen, settingsOpen]);
 
   if (!ready) {
     return (
@@ -127,8 +133,10 @@ function Main() {
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
       <StatusBar style="dark" />
-      <View style={{ flex: 1, paddingBottom: openLesson || reviewOpen || (tab === 'talk' && talkOpen) ? insets.bottom : 0 }}>
-        {reviewOpen ? (
+      <View style={{ flex: 1, paddingBottom: openLesson || reviewOpen || settingsOpen || (tab === 'talk' && talkOpen) ? insets.bottom : 0 }}>
+        {settingsOpen ? (
+          <SettingsScreen onClose={() => setSettingsOpen(false)} />
+        ) : reviewOpen ? (
           <ReviewScreen onClose={() => setReviewOpen(false)} />
         ) : openLesson ? (
           <LessonScreen
@@ -150,6 +158,7 @@ function Main() {
               setStoryId(id);
               setTab('stories');
             }}
+            onOpenSettings={() => setSettingsOpen(true)}
           />
         ) : tab === 'learn' ? (
           <LessonsScreen onOpenLesson={setOpenLessonId} />
@@ -166,7 +175,7 @@ function Main() {
         )}
       </View>
 
-      {!openLesson && !reviewOpen && !(tab === 'talk' && talkOpen) && (
+      {!openLesson && !reviewOpen && !settingsOpen && !(tab === 'talk' && talkOpen) && (
         <View style={[styles.tabBar, { paddingBottom: Math.max(insets.bottom, 10) }]}>
           {tabs.map((t) => {
             const active = t.key === tab;
