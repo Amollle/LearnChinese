@@ -7,6 +7,7 @@ import GoalPicker from '../components/GoalPicker';
 import { todayKey, useProgress } from '../context/ProgressContext';
 import { allWords, lessons } from '../data/lessons';
 import { colors } from '../theme';
+import { GearIcon } from '../components/icons';
 import PetHero from '../pet/PetHero';
 import ItemArt from '../pet/ItemArt';
 import { stories } from '../data/stories';
@@ -61,7 +62,7 @@ export default function HomeScreen({
           hitSlop={8}
           style={({ pressed }) => [styles.gear, pressed && { backgroundColor: colors.line }]}
         >
-          <Text style={styles.gearIcon}>⚙️</Text>
+          <GearIcon size={22} color={colors.muted} />
         </Pressable>
       </View>
 
@@ -182,7 +183,6 @@ const styles = StyleSheet.create({
   hello: { fontSize: 28, fontWeight: '800', color: colors.ink },
   subtitle: { fontSize: 16, color: colors.muted, marginTop: 2, marginBottom: 14 },
   gear: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.line, alignItems: 'center', justifyContent: 'center', marginTop: 2 },
-  gearIcon: { fontSize: 22 },
   statsRow: { flexDirection: 'row', gap: 10 },
   stat: { flex: 1, alignItems: 'center', paddingVertical: 14, paddingHorizontal: 6 },
   statEmoji: { fontSize: 22 },
