@@ -12,7 +12,6 @@ import { storyAudio } from '../data/storyAudio';
  * 2. Falls back to the phone's text-to-speech voice for anything not recorded.
  */
 let player: AudioPlayer | null = null;
-let lastSource: number | null = null;
 let modeReady: Promise<void> | null = null;
 
 function ensureAudioMode() {
@@ -31,15 +30,13 @@ async function playSource(source: number) {
   }
   if (!player) {
     player = createAudioPlayer(source);
-    lastSource = source;
-    player.play();
-    return;
-  }
-  if (lastSource === source) {
-    await player.seekTo(0);
   } else {
+    // Always load the clip again, even when it is the one that just played.
+    // A finished player sits at the end of the audio, and seeking it back to
+    // the start does not reliably restart it, so playing the same word twice
+    // stayed silent.
+    player.pause();
     player.replace(source);
-    lastSource = source;
   }
   player.play();
 }

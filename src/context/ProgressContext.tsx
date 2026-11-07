@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { supabaseConfigured } from '../lib/supabase';
-import { emptyProgress, localProgressStore, Progress, ProgressStore } from '../services/progressStore';
+import { CoachWord, emptyProgress, localProgressStore, Progress, ProgressStore } from '../services/progressStore';
 import { supabaseProgressStore } from '../services/supabaseProgressStore';
 import { current as currentPet, PetState } from '../pet/petLogic';
 
@@ -74,6 +74,12 @@ type ProgressContextValue = {
   markWritten: (char: string, xp: number) => void;
   /** A story was finished (XP only the first time). */
   markStoryRead: (id: string, xp: number) => void;
+  /** Words the AI coach saved after a free-talk conversation, newest first. */
+  coachWords: CoachWord[];
+  /** Save the coach's picks for review, ignoring ones already saved. */
+  addCoachWords: (words: CoachWord[]) => void;
+  /** The learner says they know this one now. */
+  removeCoachWord: (zh: string) => void;
   resetAll: () => void;
 };
 
@@ -186,6 +192,22 @@ export function ProgressProvider({ userId, children }: { userId: string; childre
     });
   }, []);
 
+  const addCoachWords = useCallback((words: CoachWord[]) => {
+    setProgress((p) => {
+      const saved = p.coachWords ?? [];
+      const have = new Set(saved.map((w) => w.zh));
+      const fresh = words.filter((w) => w.zh && !have.has(w.zh));
+      if (fresh.length === 0) return p;
+      return { ...p, coachWords: [...fresh, ...saved].slice(0, 60) };
+    });
+  }, []);
+
+  const removeCoachWord = useCallback((zh: string) => {
+    setProgress((p) => ({ ...p, coachWords: (p.coachWords ?? []).filter((w) => w.zh !== zh) }));
+  }, []);
+
+  const coachWords = progress.coachWords ?? [];
+
   const today = todayKey();
   const dueWordIds = useMemo(
     () => progress.learned.filter((id) => (progress.srs[id]?.due ?? today) <= today),
@@ -199,7 +221,7 @@ export function ProgressProvider({ userId, children }: { userId: string; childre
   }, [userId]);
 
   return (
-    <ProgressContext.Provider value={{ progress, ready, isLearned, markLearned, addXp, recordQuiz, recordAnswer, completeLesson, dueWordIds, placeOut, dailyGoal, setDailyGoal, updatePet, markWritten, markStoryRead, resetAll }}>
+    <ProgressContext.Provider value={{ progress, ready, isLearned, markLearned, addXp, recordQuiz, recordAnswer, completeLesson, dueWordIds, placeOut, dailyGoal, setDailyGoal, updatePet, markWritten, markStoryRead, coachWords, addCoachWords, removeCoachWord, resetAll }}>
       {children}
     </ProgressContext.Provider>
   );

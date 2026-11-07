@@ -3,12 +3,15 @@ import PetBuddy, { petReact } from '../pet/PetBuddy';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Card } from '../components/ui';
 import { scenarios } from '../data/conversations';
+import { aiConfigured } from '../services/ai';
 import { colors } from '../theme';
 import ConversationScreen from './ConversationScreen';
+import FreeTalkScreen from './FreeTalkScreen';
 
 /** "Talk" tab: pick a real-life situation and have a mock conversation. */
 export default function TalkScreen({ onOpenChange }: { onOpenChange?: (open: boolean) => void }) {
   const [openId, setOpenId] = useState<string | null>(null);
+  const [freeOpen, setFreeOpen] = useState(false);
   const open = scenarios.find((s) => s.id === openId);
 
   // the list is showing whenever this screen first appears
@@ -22,6 +25,12 @@ export default function TalkScreen({ onOpenChange }: { onOpenChange?: (open: boo
     onOpenChange?.(id !== null);
   };
 
+  const setFree = (on: boolean) => {
+    setFreeOpen(on);
+    onOpenChange?.(on);
+  };
+
+  if (freeOpen) return <FreeTalkScreen onClose={() => setFree(false)} />;
   if (open) return <ConversationScreen scenario={open} onClose={() => setOpen(null)} />;
 
   return (
@@ -34,6 +43,29 @@ export default function TalkScreen({ onOpenChange }: { onOpenChange?: (open: boo
         Practice real conversations. Tap a reply or say it out loud — and if you're stuck, tap “I don't understand” for
         help.
       </Text>
+      <Pressable onPress={() => aiConfigured && setFree(true)} disabled={!aiConfigured}>
+        {({ pressed }) => (
+          <Card style={[styles.card, styles.freeCard, pressed && { opacity: 0.85 }]}>
+            <View style={[styles.emojiWrap, styles.freeEmojiWrap]}>
+              <Text style={styles.emoji}>✨</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.cardTitle}>
+                Free talk <Text style={styles.zh}>自由对话</Text>
+              </Text>
+              <Text style={styles.desc}>
+                {aiConfigured
+                  ? 'No script. Say anything you like and your partner answers for real — then a coach tells you how you did.'
+                  : 'Not connected yet. Needs internet and a short one-time setup.'}
+              </Text>
+              {aiConfigured && <Text style={styles.partner}>Needs internet</Text>}
+            </View>
+          </Card>
+        )}
+      </Pressable>
+
+      <Text style={styles.sectionLabel}>OR PRACTISE A SET SITUATION</Text>
+
       {scenarios.map((s) => (
         <Pressable key={s.id} onPress={() => setOpen(s.id)}>
           {({ pressed }) => (
@@ -70,4 +102,7 @@ const styles = StyleSheet.create({
   zh: { color: colors.red, fontWeight: '700' },
   desc: { fontSize: 13, color: colors.muted, marginTop: 3, lineHeight: 18 },
   partner: { fontSize: 12, color: colors.jade, fontWeight: '700', marginTop: 5 },
+  freeCard: { borderWidth: 2, borderColor: colors.gold },
+  freeEmojiWrap: { backgroundColor: colors.jadeSoft },
+  sectionLabel: { fontSize: 12, fontWeight: '800', color: colors.muted, letterSpacing: 1, marginTop: 22 },
 });
