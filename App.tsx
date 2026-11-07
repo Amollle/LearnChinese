@@ -159,13 +159,9 @@ function Main() {
         ) : tab === 'home' ? (
           <HomeScreen
             onOpenLesson={setOpenLessonId}
-            onStartQuiz={() => setTab('quiz')}
+            onOpenTab={setTab}
             onStartReview={() => setReviewOpen(true)}
             onOpenPet={() => setTab('pet')}
-            onOpenStory={(id) => {
-              setStoryId(id);
-              setTab('stories');
-            }}
             onOpenSettings={() => setSettingsOpen(true)}
             onOpenReport={() => setReportOpen(true)}
           />

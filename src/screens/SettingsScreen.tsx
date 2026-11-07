@@ -77,6 +77,10 @@ export default function SettingsScreen({ onClose }: { onClose: () => void }) {
         </Card>
 
         <Text style={styles.note}>Each of these asks you to confirm before anything happens.</Text>
+
+        <Text style={styles.version}>
+          App version 33 · Home redesign · {supabaseConfigured ? 'synced to cloud ☁️' : 'saved on this phone'}
+        </Text>
       </ScrollView>
     </View>
   );
@@ -132,4 +136,5 @@ const styles = StyleSheet.create({
   actionTitle: { fontSize: 16, fontWeight: '800', color: colors.ink },
   actionDetail: { fontSize: 13, color: colors.muted, marginTop: 2, lineHeight: 18 },
   note: { fontSize: 13, color: colors.muted, textAlign: 'center', marginTop: 18, lineHeight: 19 },
+  version: { fontSize: 12, color: colors.muted, textAlign: 'center', marginTop: 24 },
 });

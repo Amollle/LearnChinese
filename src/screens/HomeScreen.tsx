@@ -1,18 +1,23 @@
 import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Button, Card, ProgressBar, SpeakButton } from '../components/ui';
+import { Card, ProgressBar, SpeakButton } from '../components/ui';
 import { useAuth } from '../context/AuthContext';
-import { supabaseConfigured } from '../lib/supabase';
 import GoalPicker from '../components/GoalPicker';
 import { todayKey, useProgress } from '../context/ProgressContext';
 import { allWords, lessons } from '../data/lessons';
+import { scenarios } from '../data/conversations';
+import { pictographs } from '../data/pictographs';
+import { stories } from '../data/stories';
+import { storyForYou } from '../stories/storyLogic';
 import { weekStats } from '../services/weekStats';
-import { colors } from '../theme';
+import { colors, radius } from '../theme';
 import { GearIcon } from '../components/icons';
 import PetHero from '../pet/PetHero';
 import ItemArt from '../pet/ItemArt';
-import { stories } from '../data/stories';
-import { levelName, recommendedLevel, storyForYou } from '../stories/storyLogic';
+import { current, moodOf } from '../pet/petLogic';
+
+/** The tabs a tile can jump to. Home and the panda have their own buttons. */
+type JumpTab = 'learn' | 'stories' | 'talk' | 'pictures' | 'quiz';
 
 function wordOfTheDay() {
   const key = todayKey();
@@ -21,20 +26,26 @@ function wordOfTheDay() {
   return allWords[hash % allWords.length];
 }
 
+/**
+ * Home: the panda, three numbers, the one thing to do next, and a grid with
+ * every part of the app on it.
+ *
+ * The grid is deliberately complete — each tile carries a line of live state
+ * ("6 due", "hungry", "3/7 days") so one glance says both what is here and
+ * what is waiting.
+ */
 export default function HomeScreen({
   onOpenLesson,
-  onStartQuiz,
+  onOpenTab,
   onStartReview,
   onOpenPet,
-  onOpenStory,
   onOpenSettings,
   onOpenReport,
 }: {
   onOpenLesson: (id: string) => void;
-  onStartQuiz: () => void;
+  onOpenTab: (tab: JumpTab) => void;
   onStartReview: () => void;
   onOpenPet: () => void;
-  onOpenStory: (id: string) => void;
   onOpenSettings: () => void;
   onOpenReport: () => void;
 }) {
@@ -51,13 +62,29 @@ export default function HomeScreen({
   const goalReached = progress.xpToday >= dailyGoal;
   const week = weekStats(progress, allWords);
 
+  const pet = progress.pet ? current(progress.pet) : undefined;
+  const petMood = pet ? moodOf(pet) : undefined;
+  const rewardWaiting = pet ? goalReached && pet.lastRewardDate !== todayKey() : false;
+  const petBadge = !pet
+    ? 'adopt one'
+    : rewardWaiting
+      ? 'gift waiting'
+      : petMood === 'hungry'
+        ? 'hungry'
+        : petMood === 'sad'
+          ? 'wants to play'
+          : 'happy';
+
+  const storiesRead = (progress.storiesRead ?? []).length;
+  const pick = storyForYou(stories, progress);
+
   return (
     <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
       <View style={styles.topRow}>
         <View style={{ flex: 1 }}>
           <Text style={styles.hello}>你好, {user?.name}! 👋</Text>
           <Text style={styles.subtitle}>
-            {user?.level ? `Level: ${user.level} · ` : ''}Let's learn some Chinese today.
+            {user?.level ? `Level: ${user.level} · ` : ''}Let’s learn some Chinese today.
           </Text>
         </View>
         <Pressable
@@ -72,24 +99,24 @@ export default function HomeScreen({
 
       <PetHero onOpen={onOpenPet} />
 
-      <View style={[styles.statsRow, { marginTop: 16 }]}>
-        <Stat value={`${progress.streak}`} label="day streak" emoji="🔥" />
-        <Stat value={`${progress.xp}`} label="total XP" emoji="⭐" />
-        <Stat value={`${progress.learned.length}/${allWords.length}`} label="words" emoji="📚" />
-      </View>
-
+      {/* One strip in place of three stat cards and the old daily-goal card. */}
       <Pressable onPress={() => setGoalPickerOpen(true)} accessibilityLabel="Change daily goal">
-        <Card style={styles.block}>
-          <View style={styles.rowBetween}>
-            <Text style={styles.cardTitle}>Daily goal</Text>
-            <Text style={styles.muted}>
-              {Math.min(progress.xpToday, dailyGoal)} / {dailyGoal} XP
-            </Text>
+        <Card style={styles.strip}>
+          <View style={styles.stripRow}>
+            <StripItem emoji="🔥" value={`${progress.streak}`} label="day streak" />
+            <View style={styles.stripLine} />
+            <StripItem emoji="⭐" value={`${progress.xpToday}/${dailyGoal}`} label="XP today" />
+            <View style={styles.stripLine} />
+            <StripItem emoji="📚" value={`${progress.learned.length}`} label={`of ${allWords.length} words`} />
           </View>
-          <ProgressBar value={progress.xpToday / dailyGoal} color={goalReached ? colors.jade : colors.gold} height={10} />
-          <View style={[styles.rowBetween, { marginTop: 8, marginBottom: 0 }]}>
-            <Text style={[styles.muted, { flex: 1 }]}>
-              {goalReached ? 'Goal reached — great work! 🎉' : `${dailyGoal - progress.xpToday} XP to go today`}
+          <ProgressBar
+            value={progress.xpToday / dailyGoal}
+            color={goalReached ? colors.jade : colors.gold}
+            height={8}
+          />
+          <View style={styles.stripFoot}>
+            <Text style={styles.muted}>
+              {goalReached ? 'Daily goal reached — great work! 🎉' : `${dailyGoal - progress.xpToday} XP to go today`}
             </Text>
             <Text style={styles.changeGoal}>Change ✏️</Text>
           </View>
@@ -97,46 +124,11 @@ export default function HomeScreen({
       </Pressable>
       <GoalPicker visible={goalPickerOpen} onClose={() => setGoalPickerOpen(false)} />
 
-
-      {progress.learned.length > 0 && (
-        <Pressable onPress={onStartReview}>
-          <Card style={[styles.block, styles.reviewCard, dueWordIds.length === 0 && styles.reviewCardDone]}>
-            <Text style={styles.reviewEmoji}>{dueWordIds.length > 0 ? '🧠' : '✅'}</Text>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.reviewTitle}>
-                {dueWordIds.length > 0 ? `Review: ${dueWordIds.length} word${dueWordIds.length === 1 ? '' : 's'} due` : 'Review: all caught up'}
-              </Text>
-              <Text style={styles.reviewSub}>
-                {dueWordIds.length > 0
-                  ? 'Strengthen your memory before you forget'
-                  : 'Words come back here when it’s time to review them'}
-              </Text>
-            </View>
-            {dueWordIds.length > 0 && <Text style={styles.reviewArrow}>→</Text>}
-          </Card>
-        </Pressable>
-      )}
-
-      {progress.learned.length > 0 && (
-        <Pressable onPress={onOpenReport}>
-          <Card style={[styles.block, styles.weekCard]}>
-            <Text style={styles.weekEmoji}>📊</Text>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.weekTitle}>Your week</Text>
-              <Text style={styles.muted}>
-                {week.daysActive}/7 days practised · {week.xpThisWeek} XP · {week.newWordsThisWeek} new word
-                {week.newWordsThisWeek === 1 ? '' : 's'}
-              </Text>
-            </View>
-            <Text style={styles.weekArrow}>→</Text>
-          </Card>
-        </Pressable>
-      )}
-
+      {/* The one thing to do next. The only full-width card with a loud colour. */}
       <Pressable onPress={() => onOpenLesson(nextLesson.id)}>
         <Card style={[styles.block, styles.continueCard]}>
           <Text style={styles.continueLabel}>CONTINUE LEARNING</Text>
-          <View style={styles.rowBetween}>
+          <View style={styles.continueRow}>
             <View style={{ flex: 1 }}>
               <Text style={styles.continueTitle}>
                 {nextLesson.emoji} {nextLesson.title}
@@ -150,50 +142,136 @@ export default function HomeScreen({
         </Card>
       </Pressable>
 
-      {(() => {
-        const s = storyForYou(stories, progress);
-        if (!s) return null;
-        return (
-          <Pressable onPress={() => onOpenStory(s.id)}>
-            <Card style={[styles.block, styles.storyCard]}>
-              <ItemArt id={s.art} size={50} animate={false} />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.storyLabel}>📖 STORY FOR YOU · {s.level === recommendedLevel(progress) ? '⭐ ' : ''}{levelName(s.level).toUpperCase()}</Text>
-                <Text style={styles.storyTitle}>{s.title}</Text>
-                <Text style={styles.muted}>{s.titleEn}</Text>
-              </View>
-              <Text style={styles.storyArrow}>→</Text>
-            </Card>
-          </Pressable>
-        );
-      })()}
+      <Text style={styles.sectionLabel}>PRACTISE</Text>
+      <View style={styles.tileRow}>
+        <Tile
+          emoji="🧠"
+          label="Review"
+          badge={dueWordIds.length > 0 ? `${dueWordIds.length} due` : 'all done'}
+          tint={colors.jadeSoft}
+          highlight={dueWordIds.length > 0}
+          onPress={onStartReview}
+        />
+        <Tile
+          emoji="✏️"
+          art="tab_quiz"
+          label="Quiz"
+          badge={progress.bestQuizScore > 0 ? `best ${progress.bestQuizScore}%` : 'try one'}
+          tint={colors.redSoft}
+          onPress={() => onOpenTab('quiz')}
+        />
+        <Tile
+          emoji="🖼️"
+          art="tab_pictures"
+          label="Pictures"
+          badge={`${pictographs.length} to spot`}
+          tint={colors.goldSoft}
+          onPress={() => onOpenTab('pictures')}
+        />
+        <Tile
+          emoji="💬"
+          art="tab_talk"
+          label="Talk"
+          badge={`${scenarios.length} chats`}
+          tint={colors.jadeSoft}
+          onPress={() => onOpenTab('talk')}
+        />
+      </View>
 
-      <Card style={styles.block}>
-        <Text style={styles.cardTitle}>Word of the day</Text>
-        <View style={[styles.rowBetween, { marginTop: 10 }]}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.wotdHanzi}>{word.hanzi}</Text>
-            <Text style={styles.wotdPinyin}>{word.pinyin}</Text>
-            <Text style={styles.muted}>{word.english}</Text>
-          </View>
-          <SpeakButton text={word.hanzi} size={52} />
+      <Text style={styles.sectionLabel}>EXPLORE</Text>
+      <View style={styles.tileRow}>
+        <Tile
+          emoji="📖"
+          art="tab_learn"
+          label="Lessons"
+          badge={`${progress.completedLessons.length}/${lessons.length}`}
+          tint={colors.redSoft}
+          onPress={() => onOpenTab('learn')}
+        />
+        <Tile
+          emoji="📚"
+          art="tab_stories"
+          label="Stories"
+          badge={pick ? '⭐ new pick' : `${storiesRead}/${stories.length} read`}
+          tint={colors.goldSoft}
+          highlight={!!pick}
+          onPress={() => onOpenTab('stories')}
+        />
+        <Tile emoji="🐼" label="Panda" badge={petBadge} tint={colors.jadeSoft} highlight={rewardWaiting} onPress={onOpenPet} />
+        <Tile
+          emoji="📊"
+          label="Your week"
+          badge={`${week.daysActive}/7 days`}
+          tint={colors.goldSoft}
+          onPress={onOpenReport}
+        />
+      </View>
+
+      <Card style={styles.wotd}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.wotdLabel}>WORD OF THE DAY</Text>
+          <Text style={styles.wotdHanzi}>
+            {word.hanzi} <Text style={styles.wotdPinyin}>{word.pinyin}</Text>
+          </Text>
+          <Text style={styles.muted}>{word.english}</Text>
         </View>
+        <SpeakButton text={word.hanzi} size={48} />
       </Card>
-
-      <Button title="Take a quick quiz" onPress={onStartQuiz} variant="secondary" style={styles.block} />
-
-      <Text style={styles.version}>App version 32 · Weekly report · {supabaseConfigured ? 'synced to cloud ☁️' : 'saved on this phone'}</Text>
     </ScrollView>
   );
 }
 
-function Stat({ value, label, emoji }: { value: string; label: string; emoji: string }) {
+/** One of the three numbers in the strip under the panda. */
+function StripItem({ emoji, value, label }: { emoji: string; value: string; label: string }) {
   return (
-    <Card style={styles.stat}>
-      <Text style={styles.statEmoji}>{emoji}</Text>
-      <Text style={styles.statValue}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
-    </Card>
+    <View style={styles.stripItem}>
+      <Text style={styles.stripValue}>
+        {emoji} {value}
+      </Text>
+      <Text style={styles.stripLabel} numberOfLines={1}>
+        {label}
+      </Text>
+    </View>
+  );
+}
+
+/**
+ * One square in the grid. `art` picks the app's own drawing when there is one
+ * for that part of the app; otherwise the emoji stands in.
+ */
+function Tile({
+  emoji,
+  art,
+  label,
+  badge,
+  tint,
+  highlight,
+  onPress,
+}: {
+  emoji: string;
+  art?: string;
+  label: string;
+  badge: string;
+  tint: string;
+  highlight?: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityLabel={`${label}, ${badge}`}
+      style={({ pressed }) => [styles.tile, highlight && styles.tileOn, pressed && { opacity: 0.7 }]}
+    >
+      <View style={[styles.tileIcon, { backgroundColor: tint }]}>
+        {art ? <ItemArt id={art} emoji={emoji} size={28} animate={false} /> : <Text style={styles.tileEmoji}>{emoji}</Text>}
+      </View>
+      <Text style={styles.tileLabel} numberOfLines={1}>
+        {label}
+      </Text>
+      <Text style={[styles.tileBadge, highlight && styles.tileBadgeOn]} numberOfLines={1}>
+        {badge}
+      </Text>
+    </Pressable>
   );
 }
 
@@ -203,41 +281,48 @@ const styles = StyleSheet.create({
   hello: { fontSize: 28, fontWeight: '800', color: colors.ink },
   subtitle: { fontSize: 16, color: colors.muted, marginTop: 2, marginBottom: 14 },
   gear: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.line, alignItems: 'center', justifyContent: 'center', marginTop: 2 },
-  statsRow: { flexDirection: 'row', gap: 10 },
-  stat: { flex: 1, alignItems: 'center', paddingVertical: 14, paddingHorizontal: 6 },
-  statEmoji: { fontSize: 22 },
-  statValue: { fontSize: 20, fontWeight: '800', color: colors.ink, marginTop: 4 },
-  statLabel: { fontSize: 12, color: colors.muted, marginTop: 2 },
-  block: { marginTop: 16 },
-  rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
-  cardTitle: { fontSize: 17, fontWeight: '700', color: colors.ink },
-  muted: { fontSize: 14, color: colors.muted },
-  reviewCard: { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: colors.jade },
-  reviewCardDone: { backgroundColor: colors.jadeSoft },
-  reviewEmoji: { fontSize: 30 },
-  reviewTitle: { fontSize: 18, fontWeight: '800', color: '#fff' },
-  reviewSub: { fontSize: 13, color: '#E1F2EC', marginTop: 2 },
-  reviewArrow: { color: '#fff', fontSize: 26, fontWeight: '700' },
+
+  strip: { marginTop: 14, paddingVertical: 12 },
+  stripRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
+  stripItem: { flex: 1, alignItems: 'center' },
+  stripLine: { width: 1, height: 28, backgroundColor: colors.line },
+  stripValue: { fontSize: 17, fontWeight: '800', color: colors.ink },
+  stripLabel: { fontSize: 11, color: colors.muted, marginTop: 2 },
+  stripFoot: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 },
+  muted: { fontSize: 13, color: colors.muted },
+  changeGoal: { fontSize: 13, fontWeight: '800', color: colors.red, marginLeft: 10 },
+
+  block: { marginTop: 14 },
   continueCard: { backgroundColor: colors.red },
   continueLabel: { color: '#FFD9D4', fontSize: 12, fontWeight: '800', letterSpacing: 1, marginBottom: 6 },
+  continueRow: { flexDirection: 'row', alignItems: 'center' },
   continueTitle: { color: '#fff', fontSize: 22, fontWeight: '800' },
   continueSub: { color: '#FFE9E6', fontSize: 14, marginTop: 4 },
   arrow: { color: '#fff', fontSize: 28, fontWeight: '700', marginLeft: 12 },
-  wotdHanzi: { fontSize: 40, color: colors.ink, fontWeight: '600' },
-  wotdPinyin: { fontSize: 18, color: colors.red, fontWeight: '600', marginVertical: 2 },
-  changeGoal: { fontSize: 14, fontWeight: '800', color: colors.red, marginLeft: 10 },
-  petCard: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },
-  petCardReward: { backgroundColor: colors.goldSoft, borderWidth: 2, borderColor: colors.gold },
-  petTitle: { fontSize: 18, fontWeight: '800', color: colors.ink },
-  petSub: { fontSize: 13, color: colors.muted, marginTop: 2, lineHeight: 18 },
-  petArrow: { fontSize: 24, fontWeight: '700', color: colors.ink },
-  weekCard: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  weekEmoji: { fontSize: 28 },
-  weekTitle: { fontSize: 18, fontWeight: '800', color: colors.ink },
-  weekArrow: { fontSize: 24, fontWeight: '700', color: colors.ink },
-  storyCard: { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 2, borderColor: colors.gold },
-  storyLabel: { fontSize: 11, fontWeight: '800', color: '#9A6B00', letterSpacing: 0.5 },
-  storyTitle: { fontSize: 20, fontWeight: '700', color: colors.ink, marginTop: 2 },
-  storyArrow: { fontSize: 24, fontWeight: '700', color: colors.ink },
-  version: { fontSize: 12, color: colors.muted, textAlign: 'center', marginTop: 24 },
+
+  sectionLabel: { fontSize: 12, fontWeight: '800', color: colors.muted, letterSpacing: 1, marginTop: 20, marginBottom: 8 },
+  tileRow: { flexDirection: 'row', gap: 8 },
+  tile: {
+    flex: 1,
+    minWidth: 0,
+    alignItems: 'center',
+    backgroundColor: colors.card,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.line,
+    paddingVertical: 10,
+    paddingHorizontal: 4,
+    gap: 5,
+  },
+  tileOn: { borderColor: colors.gold, borderWidth: 2 },
+  tileIcon: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
+  tileEmoji: { fontSize: 22 },
+  tileLabel: { fontSize: 12, fontWeight: '800', color: colors.ink },
+  tileBadge: { fontSize: 10, color: colors.muted },
+  tileBadgeOn: { color: '#9A6B00', fontWeight: '800' },
+
+  wotd: { marginTop: 20, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  wotdLabel: { fontSize: 11, fontWeight: '800', color: colors.muted, letterSpacing: 0.5 },
+  wotdHanzi: { fontSize: 30, color: colors.ink, fontWeight: '600', marginTop: 4 },
+  wotdPinyin: { fontSize: 17, color: colors.red, fontWeight: '600' },
 });
