@@ -142,7 +142,7 @@ export default function HomeScreen({
         </Card>
       </Pressable>
 
-      <Text style={styles.sectionLabel}>PRACTISE</Text>
+      <Text style={styles.sectionLabel}>PRACTICE</Text>
       <View style={styles.tileRow}>
         <Tile
           emoji="🧠"

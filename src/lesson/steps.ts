@@ -201,7 +201,7 @@ export function buildReviewSteps(words: Word[], limit = 10, written: string[] = 
   return shuffle(steps);
 }
 
-/** Which word(s) a step practises — used to record spaced-repetition results. */
+/** Which word(s) a step practices — used to record spaced-repetition results. */
 export function stepWords(step: Step): Word[] {
   if (step.kind === 'match') return step.words;
   if (step.kind === 'stroke' || step.kind === 'speak') return [];

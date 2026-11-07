@@ -34,8 +34,8 @@ export default function WeeklyReportScreen({ onClose }: { onClose: () => void })
       const r = await getWeeklyReport({ stats, known });
       saveWeeklyReport({ ...r, madeOn: todayKey() });
       // the words it picked go straight into the review list, like the talk coach's
-      if (r.practise.length) {
-        addCoachWords(r.practise.map((w) => ({ ...w, addedAt: Date.now() })));
+      if (r.practice.length) {
+        addCoachWords(r.practice.map((w) => ({ ...w, addedAt: Date.now() })));
       }
     } catch (e) {
       setError(e instanceof AiUnavailable ? e.message : 'Something went wrong writing the report.');
@@ -58,7 +58,7 @@ export default function WeeklyReportScreen({ onClose }: { onClose: () => void })
 
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
         <View style={styles.statsRow}>
-          <Stat value={`${stats.daysActive}/7`} label="days practised" emoji="📅" />
+          <Stat value={`${stats.daysActive}/7`} label="days practiced" emoji="📅" />
           <Stat value={`${stats.xpThisWeek}`} label="XP this week" emoji="⭐" />
           <Stat value={`${stats.newWordsThisWeek}`} label="new words" emoji="✨" />
         </View>
@@ -162,9 +162,9 @@ export default function WeeklyReportScreen({ onClose }: { onClose: () => void })
               </Card>
             )}
 
-            {report.practise.length > 0 && (
+            {report.practice.length > 0 && (
               <Text style={styles.note}>
-                {report.practise.length} word{report.practise.length === 1 ? '' : 's'} from this report went into
+                {report.practice.length} word{report.practice.length === 1 ? '' : 's'} from this report went into
                 your review list.
               </Text>
             )}

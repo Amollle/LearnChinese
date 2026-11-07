@@ -146,12 +146,12 @@ async function handleCoach(body: { situation?: string; known?: string[]; history
     `  "summary": "two or three sentences in your own words about how the conversation went",\n` +
     `  "didWell": ["short specific things they got right"],\n` +
     `  "workOn": ["short specific things to improve"],\n` +
-    `  "phrases": [ { "zh": "...", "py": "...", "en": "...", "why": "one short line on why this is worth practising" } ]\n` +
+    `  "phrases": [ { "zh": "...", "py": "...", "en": "...", "why": "one short line on why this is worth practicing" } ]\n` +
     `}\n\n` +
     `"phrases" is the important part: pick the three to six words or short phrases from THIS conversation that the ` +
     `learner struggled with, got wrong, avoided, or needed but did not know. They go straight into the learner's ` +
-    `review list, so choose things that are genuinely worth practising. Return an empty list only if there is ` +
-    `honestly nothing to practise.`;
+    `review list, so choose things that are genuinely worth practicing. Return an empty list only if there is ` +
+    `honestly nothing to practice.`;
 
   const out = await ask(
     system,
@@ -189,9 +189,9 @@ async function handleReport(body: { stats?: unknown; known?: string[] }) {
     `  "wins": ["two or three specific things that went well"],\n` +
     `  "focus": ["one or two specific things to put time into next week"],\n` +
     `  "tip": "one concrete thing to try this week, in a single sentence",\n` +
-    `  "practise": [ { "zh": "...", "py": "...", "en": "...", "why": "one short line on why" } ]\n` +
+    `  "practice": [ { "zh": "...", "py": "...", "en": "...", "why": "one short line on why" } ]\n` +
     `}\n\n` +
-    `"practise" holds up to four words from the shaky list that are worth the most attention, with a ` +
+    `"practice" holds up to four words from the shaky list that are worth the most attention, with a ` +
     `real reason each — a tone that is easy to slip on, a character that looks like another one, a word ` +
     `that keeps coming back. They go into the learner's review list, so only pick ones that help. ` +
     `Return an empty list when the shaky list is empty.`;
@@ -207,7 +207,7 @@ async function handleReport(body: { stats?: unknown; known?: string[] }) {
     wins: Array.isArray(out.wins) ? out.wins.map(String).slice(0, 4) : [],
     focus: Array.isArray(out.focus) ? out.focus.map(String).slice(0, 3) : [],
     tip: String(out.tip ?? ''),
-    practise: Array.isArray(out.practise) ? out.practise.slice(0, 4) : [],
+    practice: Array.isArray(out.practice) ? out.practice.slice(0, 4) : [],
   });
 }
 

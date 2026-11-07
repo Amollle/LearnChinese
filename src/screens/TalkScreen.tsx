@@ -64,7 +64,7 @@ export default function TalkScreen({ onOpenChange }: { onOpenChange?: (open: boo
         )}
       </Pressable>
 
-      <Text style={styles.sectionLabel}>OR PRACTISE A SET SITUATION</Text>
+      <Text style={styles.sectionLabel}>OR PRACTICE A SET SITUATION</Text>
 
       {scenarios.map((s) => (
         <Pressable key={s.id} onPress={() => setOpen(s.id)}>

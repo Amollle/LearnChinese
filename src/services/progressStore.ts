@@ -14,7 +14,7 @@ export type CoachWord = {
   zh: string;
   py: string;
   en: string;
-  /** The coach's one-line reason it is worth practising. */
+  /** The coach's one-line reason it is worth practicing. */
   why?: string;
   /** When it was added (ms), so the newest come first. */
   addedAt: number;
@@ -39,7 +39,7 @@ export type WeeklyReport = {
   wins: string[];
   focus: string[];
   tip: string;
-  practise: { zh: string; py: string; en: string; why?: string }[];
+  practice: { zh: string; py: string; en: string; why?: string }[];
   /** The day it was written (YYYY-MM-DD), so it is only rewritten once a week. */
   madeOn: string;
 };

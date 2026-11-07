@@ -40,7 +40,7 @@ export type WrittenReport = {
   wins: string[];
   focus: string[];
   tip: string;
-  practise: CoachPhrase[];
+  practice: CoachPhrase[];
 };
 
 /** Thrown for anything the learner might be able to fix (offline, signed out). */
