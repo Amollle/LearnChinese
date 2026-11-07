@@ -45,3 +45,6 @@ start-log.txt
 
 # Supabase CLI scratch state (machine-specific)
 supabase/.temp/
+
+# Parked Supabase settings, waiting on an AI key
+.env.disabled
