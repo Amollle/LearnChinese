@@ -15,15 +15,18 @@ create table if not exists public.progress (
   updated_at timestamptz not null default now()
 );
 
--- Each user can only see and change their own rows.
+-- Each user can only see and change their own rows. The policies are dropped
+-- first so this file can be run again on a database that already has them.
 alter table public.profiles enable row level security;
 alter table public.progress enable row level security;
 
+drop policy if exists "Users manage their own profile" on public.profiles;
 create policy "Users manage their own profile" on public.profiles
   for all to authenticated
   using ((select auth.uid()) = id)
   with check ((select auth.uid()) = id);
 
+drop policy if exists "Users manage their own progress" on public.progress;
 create policy "Users manage their own progress" on public.progress
   for all to authenticated
   using ((select auth.uid()) = user_id)
