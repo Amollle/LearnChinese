@@ -79,7 +79,7 @@ export default function SettingsScreen({ onClose }: { onClose: () => void }) {
         <Text style={styles.note}>Each of these asks you to confirm before anything happens.</Text>
 
         <Text style={styles.version}>
-          App version 33 · Home redesign · {supabaseConfigured ? 'synced to cloud ☁️' : 'saved on this phone'}
+          App version 34 · Lesson path · {supabaseConfigured ? 'synced to cloud ☁️' : 'saved on this phone'}
         </Text>
       </ScrollView>
     </View>
