@@ -14,12 +14,14 @@
 const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 
 /**
- * Which Gemini model to use. Flash is the fast, free-tier one.
- * If you see a "model not found" error, run this in a browser to see what your
- * key can use, then set GEMINI_MODEL as a secret to one of those names:
+ * Which Gemini model to use. Flash is the fast, free-tier one. Google retires
+ * these: gemini-2.5-flash stopped being handed out to new keys, which showed up
+ * as a 404 saying the model "is no longer available to new users".
+ * If you see that again, run this in a browser to see what your key can use,
+ * then set GEMINI_MODEL as a secret to one of those names:
  *   https://generativelanguage.googleapis.com/v1beta/models?key=YOUR_KEY
  */
-const MODEL = Deno.env.get('GEMINI_MODEL') ?? 'gemini-2.5-flash';
+const MODEL = Deno.env.get('GEMINI_MODEL') ?? 'gemini-3.8-flash';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
