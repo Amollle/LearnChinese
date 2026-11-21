@@ -62,6 +62,10 @@ export type Progress = {
   pet?: PetState;
   /** Characters the learner has written from memory. */
   written?: string[];
+  /** Lessons whose checkpoint quiz has been passed and paid out. */
+  checkpoints?: string[];
+  /** Coins earned before a panda was adopted, handed over when one is. */
+  coinsPending?: number;
   /** Stories the learner has finished. */
   storiesRead?: string[];
   /** Words the AI coach saved to review after a free-talk conversation. */

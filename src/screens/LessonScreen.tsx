@@ -10,9 +10,11 @@ import { colors, radius } from '../theme';
 type Phase =
   | { name: 'overview' }
   | { name: 'play'; key: number; part: number }
-  | { name: 'done'; result: PlayerResult; xp: number; part: number };
+  | { name: 'done'; result: PlayerResult; xp: number; part: number; coins: number };
 
 const XP_PER_CORRECT = 2;
+/** Coins for reaching the checkpoint at the end of a lesson, paid once. */
+export const CHECKPOINT_COINS = 30;
 /** For finishing a part, and again on top for finishing the whole lesson. */
 const XP_PART_BONUS = 4;
 const XP_LESSON_BONUS = 6;
@@ -26,7 +28,7 @@ export default function LessonScreen({
   onClose: () => void;
   onQuiz: (lessonId: string) => void;
 }) {
-  const { progress, recordAnswer, completeLesson, isLearned } = useProgress();
+  const { progress, recordAnswer, completeLesson, isLearned, awardCoins } = useProgress();
   const [phase, setPhase] = useState<Phase>({ name: 'overview' });
   const completed = progress.completedLessons.includes(lesson.id);
 
@@ -46,13 +48,16 @@ export default function LessonScreen({
         onWordResult={recordAnswer}
         onFinish={(result) => {
           const xp = result.correct * XP_PER_CORRECT + XP_PART_BONUS + (last ? XP_LESSON_BONUS : 0);
+          // the checkpoint pays once: finishing the lesson again does not
+          const coins = last && !completed ? CHECKPOINT_COINS : 0;
           completeLesson(
             lesson.id,
             parts[part].map((w) => w.id),
             xp,
             last,
           );
-          setPhase({ name: 'done', result, xp, part });
+          if (coins) awardCoins(coins);
+          setPhase({ name: 'done', result, xp, part, coins });
         }}
       />
     );
@@ -64,24 +69,30 @@ export default function LessonScreen({
     return (
       <ScrollView contentContainerStyle={styles.center}>
         <Text style={{ fontSize: 72 }}>{pct >= 80 ? '🎉' : '💪'}</Text>
-        <Text style={styles.doneTitle}>{last ? 'Lesson complete!' : `Part ${phase.part + 1} done!`}</Text>
+        <Text style={styles.doneTitle}>{last ? 'Checkpoint reached!' : `Part ${phase.part + 1} done!`}</Text>
         <Text style={styles.doneSub}>
           {lesson.emoji} {lesson.title} · {lesson.chineseTitle}
         </Text>
         <View style={styles.statsRow}>
           <Stat label="Accuracy" value={`${pct}%`} />
           <Stat label="XP earned" value={`+${phase.xp}`} />
-          <Stat label="Words" value={`${parts[phase.part].length}`} />
+          {phase.coins ? (
+            <Stat label="Coins" value={`+${phase.coins}`} />
+          ) : (
+            <Stat label="Words" value={`${parts[phase.part].length}`} />
+          )}
         </View>
         <Text style={styles.doneNote}>
           {last
-            ? "That's the whole lesson. Every word is now in your review schedule, and we'll bring each one back just before you'd forget it."
+            ? phase.coins
+              ? `That's the whole lesson — ${phase.coins} coins for your panda. Pass the checkpoint quiz for more. Every word is now in your review schedule.`
+              : "That's the whole lesson. Every word is now in your review schedule, and we'll bring each one back just before you'd forget it."
             : `${parts[phase.part].length} more words in your review schedule. There ${
                 parts.length - phase.part - 1 === 1 ? 'is 1 part' : `are ${parts.length - phase.part - 1} parts`
               } left — do them whenever you like.`}
         </Text>
         {last ? (
-          <Button title="Take the lesson quiz" onPress={() => onQuiz(lesson.id)} style={styles.wide} />
+          <Button title="Checkpoint quiz" onPress={() => onQuiz(lesson.id)} style={styles.wide} />
         ) : (
           <Button
             title={`Next part (${phase.part + 2} of ${parts.length})`}

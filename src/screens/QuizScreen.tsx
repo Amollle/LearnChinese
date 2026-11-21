@@ -14,6 +14,10 @@ type Question = { kind: Kind; word: Word; options: Word[]; why?: string };
 
 const QUIZ_LENGTH = 10;
 const XP_PER_CORRECT = 10;
+/** Coins for passing a lesson's checkpoint quiz, paid once per lesson. */
+const CHECKPOINT_QUIZ_COINS = 20;
+/** The score a checkpoint quiz has to reach to count as passed. */
+const CHECKPOINT_PASS = 70;
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -37,18 +41,18 @@ function buildQuiz(pool: Word[]): Question[] {
 
 type Phase =
   | { name: 'setup' }
-  | { name: 'play'; questions: Question[]; note?: string }
-  | { name: 'results'; score: number; total: number };
+  | { name: 'play'; questions: Question[]; note?: string; lessonId?: string }
+  | { name: 'results'; score: number; total: number; coins?: number };
 
 export default function QuizScreen({ presetLessonId, onPresetUsed }: { presetLessonId?: string | null; onPresetUsed?: () => void }) {
   const [phase, setPhase] = useState<Phase>({ name: 'setup' });
-  const { progress } = useProgress();
+  const { progress, awardCoins, passCheckpoint } = useProgress();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const start = (lessonId: string) => {
     const pool = lessons.find((l) => l.id === lessonId)?.words ?? allWords;
-    setPhase({ name: 'play', questions: buildQuiz(pool) });
+    setPhase({ name: 'play', questions: buildQuiz(pool), lessonId });
   };
 
   const enoughWords = progress.learned.length >= MIN_WORDS_FOR_COACH_QUIZ;
@@ -85,7 +89,23 @@ export default function QuizScreen({ presetLessonId, onPresetUsed }: { presetLes
       <QuizPlay
         questions={phase.questions}
         note={phase.note}
-        onFinish={(score) => setPhase({ name: 'results', score, total: phase.questions.length })}
+        onFinish={(score) => {
+          const pct = Math.round((score / phase.questions.length) * 100);
+          const lessonId = phase.lessonId;
+          // a checkpoint pays once, and only when it is actually passed
+          const earns =
+            !!lessonId && pct >= CHECKPOINT_PASS && !(progress.checkpoints ?? []).includes(lessonId);
+          if (earns && lessonId) {
+            awardCoins(CHECKPOINT_QUIZ_COINS);
+            passCheckpoint(lessonId);
+          }
+          setPhase({
+            name: 'results',
+            score,
+            total: phase.questions.length,
+            coins: earns ? CHECKPOINT_QUIZ_COINS : 0,
+          });
+        }}
         onQuit={() => setPhase({ name: 'setup' })}
       />
     );
@@ -101,7 +121,10 @@ export default function QuizScreen({ presetLessonId, onPresetUsed }: { presetLes
         <Text style={styles.resultScore}>
           {phase.score} / {phase.total} correct
         </Text>
-        <Text style={styles.resultXp}>+{phase.score * XP_PER_CORRECT} XP</Text>
+        <Text style={styles.resultXp}>
+          +{phase.score * XP_PER_CORRECT} XP{phase.coins ? `  ·  +${phase.coins} 🪙` : ''}
+        </Text>
+        {!!phase.coins && <Text style={styles.resultCoins}>Checkpoint passed — coins added to your panda.</Text>}
         <Button title="New quiz" onPress={() => setPhase({ name: 'setup' })} style={styles.wide} />
       </View>
     );
@@ -300,6 +323,7 @@ const styles = StyleSheet.create({
   bigEmoji: { fontSize: 72 },
   resultTitle: { fontSize: 26, fontWeight: '800', color: colors.ink, marginTop: 12, textAlign: 'center' },
   resultScore: { fontSize: 18, color: colors.muted, marginTop: 8 },
+  resultCoins: { color: colors.muted, fontSize: 14, fontWeight: '700', textAlign: 'center', marginTop: 4 },
   resultXp: { fontSize: 22, fontWeight: '800', color: colors.gold, marginTop: 8, marginBottom: 28 },
   wide: { alignSelf: 'stretch' },
   playScreen: { flex: 1 },

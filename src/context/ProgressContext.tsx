@@ -103,6 +103,12 @@ type ProgressContextValue = {
   updatePet: (fn: (pet: PetState | undefined) => PetState | undefined) => void;
   /** A character was written from memory (earns XP). */
   markWritten: (char: string, xp: number) => void;
+  /** Pay the learner coins for the pet. Held safely until a panda is adopted. */
+  awardCoins: (coins: number) => void;
+  /** Adopt a panda, handing it any coins earned before it arrived. */
+  adoptPet: (pet: PetState) => void;
+  /** This lesson's checkpoint quiz has been passed — its bonus is paid once. */
+  passCheckpoint: (lessonId: string) => void;
   /** A story was finished (XP only the first time). */
   markStoryRead: (id: string, xp: number) => void;
   /** Words the AI coach saved after a free-talk conversation, newest first. */
@@ -219,6 +225,31 @@ export function ProgressProvider({ userId, children }: { userId: string; childre
     });
   }, []);
 
+  const awardCoins = useCallback((coins: number) => {
+    if (coins <= 0) return;
+    setProgress((p) =>
+      p.pet
+        ? { ...p, pet: { ...currentPet(p.pet), coins: p.pet.coins + coins } }
+        : { ...p, coinsPending: (p.coinsPending ?? 0) + coins },
+    );
+  }, []);
+
+  const adoptPet = useCallback((pet: PetState) => {
+    setProgress((p) => ({
+      ...p,
+      pet: { ...pet, coins: pet.coins + (p.coinsPending ?? 0) },
+      coinsPending: 0,
+    }));
+  }, []);
+
+  const passCheckpoint = useCallback((lessonId: string) => {
+    setProgress((p) =>
+      (p.checkpoints ?? []).includes(lessonId)
+        ? p
+        : { ...p, checkpoints: [...(p.checkpoints ?? []), lessonId] },
+    );
+  }, []);
+
   const markWritten = useCallback((char: string, xp: number) => {
     setProgress((p) => {
       const written = p.written ?? [];
@@ -267,7 +298,7 @@ export function ProgressProvider({ userId, children }: { userId: string; childre
   }, [userId]);
 
   return (
-    <ProgressContext.Provider value={{ progress, ready, isLearned, markLearned, addXp, recordQuiz, recordAnswer, completeLesson, dueWordIds, placeOut, dailyGoal, setDailyGoal, updatePet, markWritten, markStoryRead, coachWords, addCoachWords, removeCoachWord, saveWeeklyReport, resetAll }}>
+    <ProgressContext.Provider value={{ progress, ready, isLearned, markLearned, addXp, recordQuiz, recordAnswer, completeLesson, dueWordIds, placeOut, dailyGoal, setDailyGoal, updatePet, markWritten, awardCoins, adoptPet, passCheckpoint, markStoryRead, coachWords, addCoachWords, removeCoachWord, saveWeeklyReport, resetAll }}>
       {children}
     </ProgressContext.Provider>
   );

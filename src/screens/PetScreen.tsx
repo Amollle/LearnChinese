@@ -19,7 +19,7 @@ const TABS: { key: ItemKind | 'trad'; label: string }[] = [
 ];
 
 export default function PetScreen({ onClose }: { onClose?: () => void }) {
-  const { progress, updatePet, dailyGoal } = useProgress();
+  const { progress, updatePet, dailyGoal, adoptPet } = useProgress();
   const [now, setNow] = useState(Date.now());
   const [line, setLine] = useState<Line | null>(null);
   const [tab, setTab] = useState<ItemKind | 'trad'>('food');
@@ -90,7 +90,8 @@ export default function PetScreen({ onClose }: { onClose?: () => void }) {
     }, SCENE_MS[kind]);
   };
 
-  if (!pet) return <Adopt onClose={onClose} onAdopt={(name) => updatePet(() => newPet(name))} />;
+  // adoptPet hands over any coins earned at checkpoints before there was a panda
+  if (!pet) return <Adopt onClose={onClose} onAdopt={(name) => adoptPet(newPet(name))} />;
 
   const mood = moodOf(pet);
 
