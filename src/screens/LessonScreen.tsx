@@ -1,16 +1,21 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Button, Card, SpeakButton } from '../components/ui';
 import { useProgress } from '../context/ProgressContext';
 import { Lesson } from '../data/lessons';
 import StepPlayer, { PlayerResult } from '../lesson/StepPlayer';
-import { buildLessonSteps } from '../lesson/steps';
+import { buildLessonParts, lessonPartWords } from '../lesson/steps';
 import { colors, radius } from '../theme';
 
-type Phase = { name: 'overview' } | { name: 'play'; key: number } | { name: 'done'; result: PlayerResult; xp: number };
+type Phase =
+  | { name: 'overview' }
+  | { name: 'play'; key: number; part: number }
+  | { name: 'done'; result: PlayerResult; xp: number; part: number };
 
 const XP_PER_CORRECT = 2;
-const XP_LESSON_BONUS = 10;
+/** For finishing a part, and again on top for finishing the whole lesson. */
+const XP_PART_BONUS = 4;
+const XP_LESSON_BONUS = 6;
 
 export default function LessonScreen({
   lesson,
@@ -25,21 +30,29 @@ export default function LessonScreen({
   const [phase, setPhase] = useState<Phase>({ name: 'overview' });
   const completed = progress.completedLessons.includes(lesson.id);
 
+  const parts = useMemo(() => lessonPartWords(lesson), [lesson]);
+  // the first part still holding a word you have not met; -1 once they are all met
+  const nextPart = parts.findIndex((group) => group.some((w) => !isLearned(w.id)));
+  const resumeAt = nextPart === -1 ? 0 : nextPart;
+
   if (phase.name === 'play') {
+    const part = phase.part;
+    const last = part === parts.length - 1;
     return (
       <StepPlayer
         key={phase.key}
-        steps={buildLessonSteps(lesson)}
+        steps={buildLessonParts(lesson)[part]}
         onClose={() => setPhase({ name: 'overview' })}
         onWordResult={recordAnswer}
         onFinish={(result) => {
-          const xp = result.correct * XP_PER_CORRECT + XP_LESSON_BONUS;
+          const xp = result.correct * XP_PER_CORRECT + XP_PART_BONUS + (last ? XP_LESSON_BONUS : 0);
           completeLesson(
             lesson.id,
-            lesson.words.map((w) => w.id),
+            parts[part].map((w) => w.id),
             xp,
+            last,
           );
-          setPhase({ name: 'done', result, xp });
+          setPhase({ name: 'done', result, xp, part });
         }}
       />
     );
@@ -47,24 +60,41 @@ export default function LessonScreen({
 
   if (phase.name === 'done') {
     const pct = phase.result.total ? Math.round((phase.result.correct / phase.result.total) * 100) : 100;
+    const last = phase.part === parts.length - 1;
     return (
       <ScrollView contentContainerStyle={styles.center}>
         <Text style={{ fontSize: 72 }}>{pct >= 80 ? '🎉' : '💪'}</Text>
-        <Text style={styles.doneTitle}>Lesson complete!</Text>
+        <Text style={styles.doneTitle}>{last ? 'Lesson complete!' : `Part ${phase.part + 1} done!`}</Text>
         <Text style={styles.doneSub}>
           {lesson.emoji} {lesson.title} · {lesson.chineseTitle}
         </Text>
         <View style={styles.statsRow}>
           <Stat label="Accuracy" value={`${pct}%`} />
           <Stat label="XP earned" value={`+${phase.xp}`} />
-          <Stat label="Words" value={`${lesson.words.length}`} />
+          <Stat label="Words" value={`${parts[phase.part].length}`} />
         </View>
         <Text style={styles.doneNote}>
-          These words are now in your review schedule. We'll bring each one back just before you'd forget it — check the
-          Review card on the Home screen.
+          {last
+            ? "That's the whole lesson. Every word is now in your review schedule, and we'll bring each one back just before you'd forget it."
+            : `${parts[phase.part].length} more words in your review schedule. There ${
+                parts.length - phase.part - 1 === 1 ? 'is 1 part' : `are ${parts.length - phase.part - 1} parts`
+              } left — do them whenever you like.`}
         </Text>
-        <Button title="Take the lesson quiz" onPress={() => onQuiz(lesson.id)} style={styles.wide} />
-        <Button title="Practice again" variant="secondary" onPress={() => setPhase({ name: 'play', key: Date.now() })} style={[styles.wide, { marginTop: 10 }]} />
+        {last ? (
+          <Button title="Take the lesson quiz" onPress={() => onQuiz(lesson.id)} style={styles.wide} />
+        ) : (
+          <Button
+            title={`Next part (${phase.part + 2} of ${parts.length})`}
+            onPress={() => setPhase({ name: 'play', key: Date.now(), part: phase.part + 1 })}
+            style={styles.wide}
+          />
+        )}
+        <Button
+          title="Practice this part again"
+          variant="secondary"
+          onPress={() => setPhase({ name: 'play', key: Date.now(), part: phase.part })}
+          style={[styles.wide, { marginTop: 10 }]}
+        />
         <Button title="Back to lessons" variant="secondary" onPress={onClose} style={[styles.wide, { marginTop: 10 }]} />
       </ScrollView>
     );
@@ -92,13 +122,25 @@ export default function LessonScreen({
           <How icon="🎙️" text="Say words out loud and get feedback on your tones" />
           <How icon="🧩" text="Match pairs, then build real sentences from word tiles" />
           <How icon="🔁" text="Anything you miss comes back again before the end" />
+          <How icon="⏱️" text={`Split into ${parts.length} short parts — stop after any of them`} />
         </Card>
 
         <Button
-          title={completed ? 'Practice this lesson again' : 'Start lesson'}
-          onPress={() => setPhase({ name: 'play', key: Date.now() })}
+          title={
+            completed
+              ? 'Practice this lesson again'
+              : nextPart > 0
+                ? `Continue · part ${nextPart + 1} of ${parts.length}`
+                : `Start part 1 of ${parts.length}`
+          }
+          onPress={() => setPhase({ name: 'play', key: Date.now(), part: resumeAt })}
           style={{ marginTop: 6 }}
         />
+        {!completed && nextPart > 0 && (
+          <Text style={styles.partsLine}>
+            {nextPart} of {parts.length} parts done
+          </Text>
+        )}
 
         <Text style={styles.section}>Words in this lesson ({lesson.words.length})</Text>
         {lesson.words.map((w) => (
@@ -162,6 +204,7 @@ const styles = StyleSheet.create({
   stat: { flex: 1, alignItems: 'center', paddingVertical: 14, borderRadius: radius.md },
   statValue: { fontSize: 22, fontWeight: '800', color: colors.ink },
   statLabel: { fontSize: 12, color: colors.muted, marginTop: 2 },
+  partsLine: { textAlign: 'center', color: colors.muted, fontSize: 13, fontWeight: '700', marginTop: 8 },
   doneNote: { fontSize: 14, color: colors.muted, textAlign: 'center', lineHeight: 20, marginVertical: 20 },
   wide: { alignSelf: 'stretch' },
 });

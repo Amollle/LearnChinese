@@ -93,7 +93,8 @@ type ProgressContextValue = {
   addXp: (amount: number) => void;
   recordQuiz: (percent: number) => void;
   recordAnswer: (wordId: string, correct: boolean) => void;
-  completeLesson: (lessonId: string, wordIds: string[], xp: number) => void;
+  /** A lesson part is finished. `finished` marks the whole lesson done. */
+  completeLesson: (lessonId: string, wordIds: string[], xp: number, finished?: boolean) => void;
   dueWordIds: string[];
   placeOut: (lessons: { id: string; wordIds: string[] }[]) => void;
   dailyGoal: number;
@@ -170,7 +171,7 @@ export function ProgressProvider({ userId, children }: { userId: string; childre
     });
   }, []);
 
-  const completeLesson = useCallback((lessonId: string, wordIds: string[], xp: number) => {
+  const completeLesson = useCallback((lessonId: string, wordIds: string[], xp: number, finished = true) => {
     setProgress((p) => {
       const fresh = wordIds.filter((id) => !p.learned.includes(id)).length;
       const learned = Array.from(new Set([...p.learned, ...wordIds]));
@@ -178,7 +179,11 @@ export function ProgressProvider({ userId, children }: { userId: string; childre
       for (const id of wordIds) {
         if (!srs[id] || srs[id].box === 0) srs[id] = { box: 1, due: addDays(REVIEW_INTERVALS[1]) };
       }
-      const completedLessons = p.completedLessons.includes(lessonId) ? p.completedLessons : [...p.completedLessons, lessonId];
+      // a lesson only counts as done once its last part is
+      const completedLessons =
+        !finished || p.completedLessons.includes(lessonId)
+          ? p.completedLessons
+          : [...p.completedLessons, lessonId];
       return touch({ ...p, learned, srs, completedLessons }, xp, { learned: fresh });
     });
   }, []);

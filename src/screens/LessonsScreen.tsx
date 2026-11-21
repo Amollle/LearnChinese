@@ -5,6 +5,7 @@ import PetBuddy from '../pet/PetBuddy';
 import { useProgress } from '../context/ProgressContext';
 import { LessonIcon } from '../components/lessonIcons';
 import { Lesson, lessons, levels } from '../data/lessons';
+import { lessonPartWords } from '../lesson/steps';
 import { colors } from '../theme';
 
 /**
@@ -34,7 +35,16 @@ const LABEL_W = 96;
 /** Where the circles sit across the width, as a fraction, repeating. */
 const WEAVE = [0.18, 0.52, 0.84, 0.52];
 
-type Row = { lesson: Lesson; levelId: number; levelName: string; done: number; of: number };
+type Row = {
+  lesson: Lesson;
+  levelId: number;
+  levelName: string;
+  done: number;
+  of: number;
+  /** Parts finished, and how many there are: lessons are done a part at a time. */
+  partsDone: number;
+  parts: number;
+};
 
 /** Long titles get shortened to their first word; the circles are narrow. */
 function shortName(title: string) {
@@ -53,18 +63,23 @@ export default function LessonsScreen({ onOpenLesson }: { onOpenLesson: (id: str
       for (const lesson of lessons) {
         if (!level.lessonIds.includes(lesson.id) || placed.has(lesson.id)) continue;
         placed.add(lesson.id);
-        out.push({ lesson, levelId: level.id, levelName: level.name, done: 0, of: lesson.words.length });
+        out.push({ lesson, levelId: level.id, levelName: level.name, done: 0, of: lesson.words.length, partsDone: 0, parts: 0 });
       }
     }
     // a lesson that was never added to a level still belongs on the path
     for (const lesson of lessons) {
       if (placed.has(lesson.id)) continue;
-      out.push({ lesson, levelId: 99, levelName: 'More', done: 0, of: lesson.words.length });
+      out.push({ lesson, levelId: 99, levelName: 'More', done: 0, of: lesson.words.length, partsDone: 0, parts: 0 });
     }
-    return out.map((r) => ({
-      ...r,
-      done: r.lesson.words.filter((w) => progress.learned.includes(w.id)).length,
-    }));
+    return out.map((r) => {
+      const groups = lessonPartWords(r.lesson);
+      return {
+        ...r,
+        done: r.lesson.words.filter((w) => progress.learned.includes(w.id)).length,
+        parts: groups.length,
+        partsDone: groups.filter((g) => g.every((w) => progress.learned.includes(w.id))).length,
+      };
+    });
   }, [progress.learned]);
 
   // the lesson to do next: the first one still holding a word you have not met
@@ -150,7 +165,7 @@ export default function LessonsScreen({ onOpenLesson }: { onOpenLesson: (id: str
               {now && (
                 <View style={styles.goBubble}>
                   <Text style={styles.goText}>
-                    {row.done}/{row.of} · GO
+                    PART {Math.min(row.partsDone + 1, row.parts)}/{row.parts} · GO
                   </Text>
                 </View>
               )}

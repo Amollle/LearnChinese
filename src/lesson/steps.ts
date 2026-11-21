@@ -133,21 +133,31 @@ function wordGroups(words: Word[]): Word[][] {
   return groups;
 }
 
+/** The words each part of a lesson teaches, in order. */
+export function lessonPartWords(lesson: Lesson): Word[][] {
+  return wordGroups(lesson.words);
+}
+
 /**
- * A full guided lesson:
- * for each small group of words → meet each word → quick practice → learn to write its characters → match pairs → say one out loud;
- * then write the characters from memory and use every word in a sentence.
+ * A lesson, split into short parts — one small group of words each.
+ *
+ * A part is self-contained: meet each new word → quick practice → learn to
+ * write its characters → match pairs → say one out loud → write those
+ * characters from memory and use them in sentences. Doing all of a lesson at
+ * once was around fifty steps, which is a long sitting for a child; this way
+ * each part is roughly a third of that and ends somewhere sensible.
  */
-export function buildLessonSteps(lesson: Lesson): Step[] {
+export function buildLessonParts(lesson: Lesson): Step[][] {
   const words = lesson.words;
-  const steps: Step[] = [];
   const groups = wordGroups(words);
   const writeGroups = writeCharsByLesson[lesson.id] ?? [];
   const basics = [...(STROKES_IN_LESSON[lesson.id] ?? [])];
 
   const modes: ChoiceMode[] = ['listen', 'en2zh', 'tone', 'zh2en'];
   let m = 0;
-  groups.forEach((group, gi) => {
+
+  return groups.map((group, gi) => {
+    const steps: Step[] = [];
     group.forEach((w) => steps.push({ kind: 'intro', word: w }));
     shuffle(group).forEach((w) => steps.push(choiceStep(w, modes[m++ % modes.length], words)));
     const toWrite = writeGroups[gi] ?? [];
@@ -162,19 +172,32 @@ export function buildLessonSteps(lesson: Lesson): Step[] {
     // say one of the group's words out loud
     const sayable = shuffle(group.filter((w) => speechWords.some((s) => s.id === w.id)));
     if (sayable.length) steps.push({ kind: 'speak', word: sayable[0] });
-  });
 
-  basics.forEach((index) => steps.push({ kind: 'stroke', index }));
-  // finish with sentences, mixed with writing the lesson's characters from memory
-  const recall: Step[] = shuffle(writeGroups.flat()).map(({ char, word }) => ({ kind: 'write', word, char, mode: 'recall' }));
-  const sentenceSteps = shuffle(words)
-    .map((w, i) => sentenceStep(w, words, i % 2 === 1))
-    .filter((s): s is Step => s !== null);
-  while (recall.length || sentenceSteps.length) {
-    if (recall.length) steps.push(recall.shift()!);
-    if (sentenceSteps.length) steps.push(sentenceSteps.shift()!);
-  }
-  return steps;
+    // any strokes left over are taught in the last part
+    if (gi === groups.length - 1) basics.forEach((index) => steps.push({ kind: 'stroke', index }));
+
+    // this part's own ending: its characters from memory, and its words in
+    // sentences, rather than a long tail of both at the end of the lesson
+    const recall: Step[] = shuffle(toWrite).map(({ char, word }) => ({
+      kind: 'write' as const,
+      word,
+      char,
+      mode: 'recall' as const,
+    }));
+    const sentenceSteps = shuffle(group)
+      .map((w, i) => sentenceStep(w, words, i % 2 === 1))
+      .filter((s): s is Step => s !== null);
+    while (recall.length || sentenceSteps.length) {
+      if (recall.length) steps.push(recall.shift()!);
+      if (sentenceSteps.length) steps.push(sentenceSteps.shift()!);
+    }
+    return steps;
+  });
+}
+
+/** The whole lesson in one sitting, for anything that still wants it. */
+export function buildLessonSteps(lesson: Lesson): Step[] {
+  return buildLessonParts(lesson).flat();
 }
 
 /** A review session for words that are due: mixed practice, no introductions. */
