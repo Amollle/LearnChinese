@@ -38,13 +38,48 @@ function json(body: unknown, status = 200) {
   });
 }
 
-/** One call to Gemini. Split out so it can be retried without thinkingConfig. */
-function callGemini(key: string, body: unknown) {
-  return fetch(`${GEMINI_BASE}/${MODEL}:generateContent`, {
+/**
+ * A second model to fall back on when the first is overloaded or missing.
+ * Set GEMINI_MODEL_FALLBACK as a secret to change it.
+ */
+const FALLBACK_MODEL = Deno.env.get('GEMINI_MODEL_FALLBACK') ?? 'gemini-flash-latest';
+
+/** Stop retrying after this long, so the phone's own 30s limit wins first. */
+const RETRY_BUDGET_MS = 20_000;
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** One call to Gemini. Split out so it can be retried and swapped models. */
+function callGemini(model: string, key: string, body: unknown) {
+  return fetch(`${GEMINI_BASE}/${model}:generateContent`, {
     method: 'POST',
     headers: { 'x-goog-api-key': key, 'content-type': 'application/json' },
     body: JSON.stringify(body),
   });
+}
+
+/** Pull the answer out of a reply, or say usefully why there isn't one. */
+function parseAnswer(data: {
+  candidates?: { content?: { parts?: { text?: string }[] }; finishReason?: string }[];
+  usageMetadata?: { thoughtsTokenCount?: number };
+}, cap: number) {
+  const candidate = data.candidates?.[0];
+  const text = (candidate?.content?.parts ?? []).map((p) => p.text ?? '').join('');
+
+  if (!text.trim()) {
+    // say enough to tell "thought itself out of budget" from "refused to answer"
+    throw new Error(
+      `The AI returned no text (finish: ${candidate?.finishReason ?? 'unknown'}, ` +
+        `thought tokens: ${data.usageMetadata?.thoughtsTokenCount ?? 0}, cap: ${cap})`,
+    );
+  }
+
+  const cleaned = text.trim().replace(/^```(?:json)?/, '').replace(/```$/, '').trim();
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    throw new Error(`The AI did not return JSON: ${cleaned.slice(0, 300)}`);
+  }
 }
 
 /** Ask Gemini for JSON and parse it. */
@@ -56,49 +91,50 @@ async function ask(system: string, prompt: string, maxTokens: number) {
   // maxOutputTokens. Left alone it thinks at HIGH, which on a small budget can
   // use the whole allowance and come back with no answer at all. So: think as
   // little as possible, and leave plenty of room on top of what we expect.
+  const cap = maxTokens * 4;
   const body = (thinking: boolean) => ({
     systemInstruction: { parts: [{ text: system }] },
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
     generationConfig: {
       // Gemini can be told to answer in JSON, so there is nothing to strip.
       responseMimeType: 'application/json',
-      maxOutputTokens: maxTokens * 4,
+      maxOutputTokens: cap,
       temperature: 0.8,
       ...(thinking ? { thinkingConfig: { thinkingLevel: 'MINIMAL' } } : {}),
     },
   });
 
-  let res = await callGemini(key, body(true));
-  // a model or API version that has never heard of thinkingConfig rejects it
-  if (res.status === 400) res = await callGemini(key, body(false));
+  // Google answers 503 when a model is busy, which new models often are, and
+  // 404 when this key cannot use it at all. Neither is worth failing on until
+  // we have asked again and tried the other model.
+  const models = MODEL === FALLBACK_MODEL ? [MODEL] : [MODEL, FALLBACK_MODEL];
+  const until = Date.now() + RETRY_BUDGET_MS;
+  let last = '';
 
-  if (!res.ok) {
-    const detail = await res.text();
-    if (res.status === 429) throw new Error('RATE_LIMIT');
-    throw new Error(`Gemini ${res.status}: ${detail.slice(0, 400)}`);
+  for (const model of models) {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      let res = await callGemini(model, key, body(true));
+      // a model or API version that has never heard of thinkingConfig rejects it
+      if (res.status === 400) res = await callGemini(model, key, body(false));
+
+      if (res.ok) return parseAnswer(await res.json(), cap);
+
+      const detail = await res.text();
+      if (res.status === 429) throw new Error('RATE_LIMIT');
+      last = `Gemini ${res.status} on ${model}: ${detail.slice(0, 300)}`;
+
+      // this key cannot use this model at all — asking again will not help
+      if (res.status === 404) break;
+      // busy: wait a little and ask again, while there is time to
+      if (res.status >= 500 && Date.now() < until) {
+        await sleep(700 * (attempt + 1));
+        continue;
+      }
+      break;
+    }
   }
 
-  const data = await res.json();
-  const candidate = data.candidates?.[0];
-  const text: string = (candidate?.content?.parts ?? [])
-    .map((p: { text?: string }) => p.text ?? '')
-    .join('');
-
-  if (!text.trim()) {
-    // say enough to tell "thought itself out of budget" from "refused to answer"
-    const used = data.usageMetadata ?? {};
-    throw new Error(
-      `The AI returned no text (finish: ${candidate?.finishReason ?? 'unknown'}, ` +
-        `thought tokens: ${used.thoughtsTokenCount ?? 0}, cap: ${maxTokens * 4})`,
-    );
-  }
-
-  const cleaned = text.trim().replace(/^```(?:json)?/, '').replace(/```$/, '').trim();
-  try {
-    return JSON.parse(cleaned);
-  } catch {
-    throw new Error(`The AI did not return JSON: ${cleaned.slice(0, 300)}`);
-  }
+  throw new Error(last || 'Gemini could not be reached');
 }
 
 const VOCAB_RULE = (known: string[]) =>
