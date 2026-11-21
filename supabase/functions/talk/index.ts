@@ -80,20 +80,18 @@ function parseAnswer(data: {
 }, cap: number) {
   const candidate = data.candidates?.[0];
   const text = (candidate?.content?.parts ?? []).map((p) => p.text ?? '').join('');
+  // enough to tell "thought itself out of budget" from "refused to answer"
+  const why =
+    `finish: ${candidate?.finishReason ?? 'unknown'}, ` +
+    `thought tokens: ${data.usageMetadata?.thoughtsTokenCount ?? 0}, cap: ${cap}`;
 
-  if (!text.trim()) {
-    // say enough to tell "thought itself out of budget" from "refused to answer"
-    throw new Error(
-      `The AI returned no text (finish: ${candidate?.finishReason ?? 'unknown'}, ` +
-        `thought tokens: ${data.usageMetadata?.thoughtsTokenCount ?? 0}, cap: ${cap})`,
-    );
-  }
+  if (!text.trim()) throw new Error(`The AI returned no text (${why})`);
 
   const cleaned = text.trim().replace(/^```(?:json)?/, '').replace(/```$/, '').trim();
   try {
     return JSON.parse(cleaned);
   } catch {
-    throw new Error(`The AI did not return JSON: ${cleaned.slice(0, 300)}`);
+    throw new Error(`The AI did not return JSON (${why}): ${cleaned.slice(0, 200)}`);
   }
 }
 
@@ -106,8 +104,11 @@ async function ask(system: string, prompt: string, maxTokens: number) {
   // maxOutputTokens. Left alone it thinks at HIGH, which on a small budget can
   // use the whole allowance and come back with no answer at all. So: think as
   // little as possible, and leave plenty of room on top of what we expect.
-  const cap = maxTokens * 4;
-  const body = (thinking: boolean) => ({
+  const cap = Math.max(maxTokens * 6, 6000);
+  // Google has renamed this setting across model generations, and sends back a
+  // 400 for the spelling a model does not know. Try each, then go without.
+  const THINKING = [{ thinkingLevel: 'MINIMAL' }, { thinkingBudget: 0 }, null];
+  const body = (variant: number) => ({
     systemInstruction: { parts: [{ text: system }] },
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
     generationConfig: {
@@ -115,7 +116,7 @@ async function ask(system: string, prompt: string, maxTokens: number) {
       responseMimeType: 'application/json',
       maxOutputTokens: cap,
       temperature: 0.8,
-      ...(thinking ? { thinkingConfig: { thinkingLevel: 'MINIMAL' } } : {}),
+      ...(THINKING[variant] ? { thinkingConfig: THINKING[variant] } : {}),
     },
   });
 
@@ -138,9 +139,10 @@ async function ask(system: string, prompt: string, maxTokens: number) {
 
       let res: Response;
       try {
-        res = await callGemini(model, key, body(true));
-        // a model or API version that has never heard of thinkingConfig rejects it
-        if (res.status === 400) res = await callGemini(model, key, body(false));
+        res = await callGemini(model, key, body(0));
+        for (let v = 1; v < THINKING.length && res.status === 400; v++) {
+          res = await callGemini(model, key, body(v));
+        }
       } catch {
         last = `${model} did not answer within ${CALL_TIMEOUT_MS / 1000}s`;
         continue;
