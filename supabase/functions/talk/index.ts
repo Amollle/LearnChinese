@@ -38,25 +38,39 @@ function json(body: unknown, status = 200) {
   });
 }
 
+/** One call to Gemini. Split out so it can be retried without thinkingConfig. */
+function callGemini(key: string, body: unknown) {
+  return fetch(`${GEMINI_BASE}/${MODEL}:generateContent`, {
+    method: 'POST',
+    headers: { 'x-goog-api-key': key, 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+}
+
 /** Ask Gemini for JSON and parse it. */
 async function ask(system: string, prompt: string, maxTokens: number) {
   const key = Deno.env.get('GEMINI_API_KEY');
   if (!key) throw new Error('GEMINI_API_KEY is not set on the server');
 
-  const res = await fetch(`${GEMINI_BASE}/${MODEL}:generateContent`, {
-    method: 'POST',
-    headers: { 'x-goog-api-key': key, 'content-type': 'application/json' },
-    body: JSON.stringify({
-      systemInstruction: { parts: [{ text: system }] },
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      generationConfig: {
-        // Gemini can be told to answer in JSON, so there is nothing to strip.
-        responseMimeType: 'application/json',
-        maxOutputTokens: maxTokens,
-        temperature: 0.8,
-      },
-    }),
+  // Gemini 3 thinks before it answers, and those thoughts are paid for out of
+  // maxOutputTokens. Left alone it thinks at HIGH, which on a small budget can
+  // use the whole allowance and come back with no answer at all. So: think as
+  // little as possible, and leave plenty of room on top of what we expect.
+  const body = (thinking: boolean) => ({
+    systemInstruction: { parts: [{ text: system }] },
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    generationConfig: {
+      // Gemini can be told to answer in JSON, so there is nothing to strip.
+      responseMimeType: 'application/json',
+      maxOutputTokens: maxTokens * 4,
+      temperature: 0.8,
+      ...(thinking ? { thinkingConfig: { thinkingLevel: 'MINIMAL' } } : {}),
+    },
   });
+
+  let res = await callGemini(key, body(true));
+  // a model or API version that has never heard of thinkingConfig rejects it
+  if (res.status === 400) res = await callGemini(key, body(false));
 
   if (!res.ok) {
     const detail = await res.text();
@@ -65,9 +79,20 @@ async function ask(system: string, prompt: string, maxTokens: number) {
   }
 
   const data = await res.json();
-  const text: string = (data.candidates?.[0]?.content?.parts ?? [])
+  const candidate = data.candidates?.[0];
+  const text: string = (candidate?.content?.parts ?? [])
     .map((p: { text?: string }) => p.text ?? '')
     .join('');
+
+  if (!text.trim()) {
+    // say enough to tell "thought itself out of budget" from "refused to answer"
+    const used = data.usageMetadata ?? {};
+    throw new Error(
+      `The AI returned no text (finish: ${candidate?.finishReason ?? 'unknown'}, ` +
+        `thought tokens: ${used.thoughtsTokenCount ?? 0}, cap: ${maxTokens * 4})`,
+    );
+  }
+
   const cleaned = text.trim().replace(/^```(?:json)?/, '').replace(/```$/, '').trim();
   try {
     return JSON.parse(cleaned);
