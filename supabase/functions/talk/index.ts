@@ -54,13 +54,23 @@ const RETRY_BUDGET_MS = 20_000;
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-/** One call to Gemini. Split out so it can be retried and swapped models. */
-function callGemini(model: string, key: string, body: unknown) {
-  return fetch(`${GEMINI_BASE}/${model}:generateContent`, {
-    method: 'POST',
-    headers: { 'x-goog-api-key': key, 'content-type': 'application/json' },
-    body: JSON.stringify(body),
-  });
+/** How long to wait on any one model before trying the next. */
+const CALL_TIMEOUT_MS = 10_000;
+
+/** One call to Gemini, given up on if the model does not answer promptly. */
+async function callGemini(model: string, key: string, body: unknown) {
+  const abort = new AbortController();
+  const timer = setTimeout(() => abort.abort(), CALL_TIMEOUT_MS);
+  try {
+    return await fetch(`${GEMINI_BASE}/${model}:generateContent`, {
+      method: 'POST',
+      headers: { 'x-goog-api-key': key, 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: abort.signal,
+    });
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /** Pull the answer out of a reply, or say usefully why there isn't one. */
@@ -112,35 +122,42 @@ async function ask(system: string, prompt: string, maxTokens: number) {
   // Google answers 503 when a model is busy, which new models often are, and
   // 404 when this key cannot use it at all. Neither is worth failing on until
   // we have asked again and tried the other model.
-  const models = [MODEL, ...FALLBACK_MODELS].filter((m, i, all) => all.indexOf(m) === i);
+  // Ask every model once before asking any of them twice. A busy model can sit
+  // on a request for seconds, and spending the whole budget queueing for the
+  // first one is how the fallbacks never got reached.
+  const alive = [MODEL, ...FALLBACK_MODELS].filter((m, i, all) => all.indexOf(m) === i);
   const until = Date.now() + RETRY_BUDGET_MS;
+  const tried: string[] = [];
   let last = '';
 
-  for (const model of models) {
-    if (Date.now() > until) break;
-    for (let attempt = 0; attempt < 3; attempt++) {
-      let res = await callGemini(model, key, body(true));
-      // a model or API version that has never heard of thinkingConfig rejects it
-      if (res.status === 400) res = await callGemini(model, key, body(false));
+  for (let round = 0; round < 2 && alive.length; round++) {
+    if (round) await sleep(600);
+    for (const model of [...alive]) {
+      if (Date.now() > until) break;
+      tried.push(model);
+
+      let res: Response;
+      try {
+        res = await callGemini(model, key, body(true));
+        // a model or API version that has never heard of thinkingConfig rejects it
+        if (res.status === 400) res = await callGemini(model, key, body(false));
+      } catch {
+        last = `${model} did not answer within ${CALL_TIMEOUT_MS / 1000}s`;
+        continue;
+      }
 
       if (res.ok) return parseAnswer(await res.json(), cap);
 
       const detail = await res.text();
       if (res.status === 429) throw new Error('RATE_LIMIT');
-      last = `Gemini ${res.status} on ${model}: ${detail.slice(0, 300)}`;
+      last = `Gemini ${res.status} on ${model}: ${detail.slice(0, 200)}`;
 
-      // this key cannot use this model at all — asking again will not help
-      if (res.status === 404) break;
-      // busy: wait a little and ask again, while there is time to
-      if (res.status >= 500 && Date.now() < until) {
-        await sleep(700 * (attempt + 1));
-        continue;
-      }
-      break;
+      // this key cannot use this model at all — drop it rather than ask again
+      if (res.status === 404) alive.splice(alive.indexOf(model), 1);
     }
   }
 
-  throw new Error(last || 'Gemini could not be reached');
+  throw new Error(`${last || 'Gemini could not be reached'} (tried: ${tried.join(', ')})`);
 }
 
 const VOCAB_RULE = (known: string[]) =>
