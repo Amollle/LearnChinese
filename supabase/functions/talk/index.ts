@@ -16,12 +16,14 @@ const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 /**
  * Which Gemini model to use. Flash is the fast, free-tier one. Google retires
  * these: gemini-2.5-flash stopped being handed out to new keys, which showed up
- * as a 404 saying the model "is no longer available to new users".
+ * as a 404 saying the model "is no longer available to new users". Its
+ * replacement, gemini-3.8-flash, was so new it answered 503 (overloaded) to
+ * every real request, so this sits one release back on purpose.
  * If you see that again, run this in a browser to see what your key can use,
  * then set GEMINI_MODEL as a secret to one of those names:
  *   https://generativelanguage.googleapis.com/v1beta/models?key=YOUR_KEY
  */
-const MODEL = Deno.env.get('GEMINI_MODEL') ?? 'gemini-3.8-flash';
+const MODEL = Deno.env.get('GEMINI_MODEL') ?? 'gemini-3.7-flash';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -39,10 +41,13 @@ function json(body: unknown, status = 200) {
 }
 
 /**
- * A second model to fall back on when the first is overloaded or missing.
- * Set GEMINI_MODEL_FALLBACK as a secret to change it.
+ * Models to fall back on, in order, when the one above is overloaded or gone.
+ * Set GEMINI_MODEL_FALLBACK as a secret to a comma-separated list to change it.
  */
-const FALLBACK_MODEL = Deno.env.get('GEMINI_MODEL_FALLBACK') ?? 'gemini-flash-latest';
+const FALLBACK_MODELS = (Deno.env.get('GEMINI_MODEL_FALLBACK') ?? 'gemini-3.5-flash-lite,gemini-flash-latest')
+  .split(',')
+  .map((m) => m.trim())
+  .filter(Boolean);
 
 /** Stop retrying after this long, so the phone's own 30s limit wins first. */
 const RETRY_BUDGET_MS = 20_000;
@@ -107,11 +112,12 @@ async function ask(system: string, prompt: string, maxTokens: number) {
   // Google answers 503 when a model is busy, which new models often are, and
   // 404 when this key cannot use it at all. Neither is worth failing on until
   // we have asked again and tried the other model.
-  const models = MODEL === FALLBACK_MODEL ? [MODEL] : [MODEL, FALLBACK_MODEL];
+  const models = [MODEL, ...FALLBACK_MODELS].filter((m, i, all) => all.indexOf(m) === i);
   const until = Date.now() + RETRY_BUDGET_MS;
   let last = '';
 
   for (const model of models) {
+    if (Date.now() > until) break;
     for (let attempt = 0; attempt < 3; attempt++) {
       let res = await callGemini(model, key, body(true));
       // a model or API version that has never heard of thinkingConfig rejects it
