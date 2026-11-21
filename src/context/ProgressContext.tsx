@@ -105,6 +105,7 @@ type ProgressContextValue = {
   markWritten: (char: string, xp: number) => void;
   /** Pay the learner coins for the pet. Held safely until a panda is adopted. */
   awardCoins: (coins: number) => void;
+  awardCheckpoint: (lessonId: string, coins: number) => void;
   /** Adopt a panda, handing it any coins earned before it arrived. */
   adoptPet: (pet: PetState) => void;
   /** This lesson's checkpoint quiz has been passed — its bonus is paid once. */
@@ -234,6 +235,22 @@ export function ProgressProvider({ userId, children }: { userId: string; childre
     );
   }, []);
 
+  /**
+   * Pay the coins for reaching the end of a lesson. Recorded against the
+   * lesson, so it pays the first time you get there and never again —
+   * including for lessons that were already finished before checkpoints
+   * existed. Both halves happen in one update, so it cannot double-pay.
+   */
+  const awardCheckpoint = useCallback((lessonId: string, coins: number) => {
+    setProgress((p) => {
+      if ((p.checkpointsPaid ?? []).includes(lessonId)) return p;
+      const paid = { ...p, checkpointsPaid: [...(p.checkpointsPaid ?? []), lessonId] };
+      return p.pet
+        ? { ...paid, pet: { ...currentPet(p.pet), coins: p.pet.coins + coins } }
+        : { ...paid, coinsPending: (p.coinsPending ?? 0) + coins };
+    });
+  }, []);
+
   const adoptPet = useCallback((pet: PetState) => {
     setProgress((p) => ({
       ...p,
@@ -298,7 +315,7 @@ export function ProgressProvider({ userId, children }: { userId: string; childre
   }, [userId]);
 
   return (
-    <ProgressContext.Provider value={{ progress, ready, isLearned, markLearned, addXp, recordQuiz, recordAnswer, completeLesson, dueWordIds, placeOut, dailyGoal, setDailyGoal, updatePet, markWritten, awardCoins, adoptPet, passCheckpoint, markStoryRead, coachWords, addCoachWords, removeCoachWord, saveWeeklyReport, resetAll }}>
+    <ProgressContext.Provider value={{ progress, ready, isLearned, markLearned, addXp, recordQuiz, recordAnswer, completeLesson, dueWordIds, placeOut, dailyGoal, setDailyGoal, updatePet, markWritten, awardCoins, awardCheckpoint, adoptPet, passCheckpoint, markStoryRead, coachWords, addCoachWords, removeCoachWord, saveWeeklyReport, resetAll }}>
       {children}
     </ProgressContext.Provider>
   );

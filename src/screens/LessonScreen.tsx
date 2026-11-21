@@ -28,9 +28,12 @@ export default function LessonScreen({
   onClose: () => void;
   onQuiz: (lessonId: string) => void;
 }) {
-  const { progress, recordAnswer, completeLesson, isLearned, awardCoins } = useProgress();
+  const { progress, recordAnswer, completeLesson, isLearned, awardCheckpoint } = useProgress();
   const [phase, setPhase] = useState<Phase>({ name: 'overview' });
   const completed = progress.completedLessons.includes(lesson.id);
+  // whether this lesson's checkpoint has already paid out, which is its own
+  // record: lessons finished before checkpoints existed still pay once
+  const paid = (progress.checkpointsPaid ?? []).includes(lesson.id);
 
   const parts = useMemo(() => lessonPartWords(lesson), [lesson]);
   // the first part still holding a word you have not met; -1 once they are all met
@@ -49,14 +52,14 @@ export default function LessonScreen({
         onFinish={(result) => {
           const xp = result.correct * XP_PER_CORRECT + XP_PART_BONUS + (last ? XP_LESSON_BONUS : 0);
           // the checkpoint pays once: finishing the lesson again does not
-          const coins = last && !completed ? CHECKPOINT_COINS : 0;
+          const coins = last && !paid ? CHECKPOINT_COINS : 0;
           completeLesson(
             lesson.id,
             parts[part].map((w) => w.id),
             xp,
             last,
           );
-          if (coins) awardCoins(coins);
+          if (coins) awardCheckpoint(lesson.id, coins);
           setPhase({ name: 'done', result, xp, part, coins });
         }}
       />

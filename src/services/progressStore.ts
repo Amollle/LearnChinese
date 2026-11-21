@@ -64,6 +64,8 @@ export type Progress = {
   written?: string[];
   /** Lessons whose checkpoint quiz has been passed and paid out. */
   checkpoints?: string[];
+  /** Lessons whose end-of-lesson checkpoint coins have been paid out. */
+  checkpointsPaid?: string[];
   /** Coins earned before a panda was adopted, handed over when one is. */
   coinsPending?: number;
   /** Stories the learner has finished. */
