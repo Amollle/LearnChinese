@@ -129,6 +129,7 @@ async function ask(system: string, prompt: string, maxTokens: number) {
   const alive = [MODEL, ...FALLBACK_MODELS].filter((m, i, all) => all.indexOf(m) === i);
   const until = Date.now() + RETRY_BUDGET_MS;
   const tried: string[] = [];
+  let outOfQuota = 0;
   let last = '';
 
   for (let round = 0; round < 2 && alive.length; round++) {
@@ -151,14 +152,20 @@ async function ask(system: string, prompt: string, maxTokens: number) {
       if (res.ok) return parseAnswer(await res.json(), cap);
 
       const detail = await res.text();
-      if (res.status === 429) throw new Error('RATE_LIMIT');
       last = `Gemini ${res.status} on ${model}: ${detail.slice(0, 200)}`;
 
-      // this key cannot use this model at all — drop it rather than ask again
-      if (res.status === 404) alive.splice(alive.indexOf(model), 1);
+      // 404: this key cannot use this model. 429: this model's free quota is
+      // spent. Either way stop asking this one — but the others have quotas of
+      // their own, so carry on rather than giving up on the whole turn.
+      if (res.status === 404 || res.status === 429) {
+        if (res.status === 429) outOfQuota++;
+        alive.splice(alive.indexOf(model), 1);
+      }
     }
   }
 
+  // only a real daily cap once every model has said so
+  if (outOfQuota && !alive.length) throw new Error('RATE_LIMIT');
   throw new Error(`${last || 'Gemini could not be reached'} (tried: ${tried.join(', ')})`);
 }
 
